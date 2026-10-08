@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791072334794,
+      "tag": "0000_foundations",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791076659476,
+      "tag": "0001_templates_and_businesses",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791076666118,
+      "tag": "0002_tenant_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791103081655,
+      "tag": "0003_messaging",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791103083063,
+      "tag": "0004_messaging_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791490919965,
+      "tag": "0005_scheduling",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791490922147,
+      "tag": "0006_scheduling_constraints_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791493039554,
+      "tag": "0007_messages_created_at_clock",
+      "breakpoints": true
+    }
+  ]
+}

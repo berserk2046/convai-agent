@@ -1,0 +1,30 @@
+# Secrets. .env holds real keys and tokens; only the template is committed.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# Dependencies and package-manager caches (recreated by `pnpm install`)
+node_modules/
+.pnpm-store/
+
+# Build and tool output (recreated by the tools)
+.turbo/
+dist/
+.next/
+coverage/
+*.tsbuildinfo
+.cache/
+
+# Logs
+*.log
+
+# Editors, OS and local assistant settings (per person, not per project)
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+.claude/settings.local.json

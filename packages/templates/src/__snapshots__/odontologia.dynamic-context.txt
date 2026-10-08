@@ -1,0 +1,19 @@
+Fecha y hora actual: lunes 5 de octubre de 2026, 9:00 a. m. (America/Bogota).
+Calendario (usa estas fechas exactas, no las calcules):
+- lunes 5 de octubre (hoy): 2026-10-05
+- martes 6 de octubre (mañana): 2026-10-06
+- miércoles 7 de octubre (pasado mañana): 2026-10-07
+- jueves 8 de octubre: 2026-10-08
+- viernes 9 de octubre: 2026-10-09
+- sábado 10 de octubre: 2026-10-10
+- domingo 11 de octubre: 2026-10-11
+- lunes 12 de octubre: 2026-10-12
+- martes 13 de octubre: 2026-10-13
+- miércoles 14 de octubre: 2026-10-14
+- jueves 15 de octubre: 2026-10-15
+- viernes 16 de octubre: 2026-10-16
+- sábado 17 de octubre: 2026-10-17
+- domingo 18 de octubre: 2026-10-18
+Paciente: Ana Pérez.
+Citas próximas del paciente:
+- Valoración, martes 6 de octubre, 10:00 a. m. (id 7d3c2f1e-0000-4000-8000-000000000001)

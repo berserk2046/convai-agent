@@ -1,0 +1,21 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "agentGuidance": false,
+  "concurrency": "50%",
+  "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
+    "typecheck": {
+      "dependsOn": ["transit"]
+    },
+    "lint": {
+      "dependsOn": ["transit"]
+    },
+    "test": {
+      "dependsOn": ["transit"],
+      "cache": false,
+      "passThroughEnv": ["NODE_ENV", "LOG_LEVEL", "DATABASE_URL", "REDIS_URL"]
+    }
+  }
+}

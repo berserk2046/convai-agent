@@ -1,0 +1,20 @@
+{
+  "name": "@platform/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=../../.env src/main.ts",
+    "dev": "node --watch --env-file-if-exists=../../.env src/main.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@platform/channels": "workspace:*",
+    "@platform/core": "workspace:*",
+    "@platform/db": "workspace:*",
+    "@platform/shared": "workspace:*",
+    "fastify": "^5.12.5"
+  }
+}
