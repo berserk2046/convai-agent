@@ -212,7 +212,7 @@ agent:
   dynamic_context: |
     Fecha y hora actual: {{ now.long }} ({{ business.timezone }}).
     Calendario (usa estas fechas exactas, no las calcules):
-    {% for d in now.calendar %}- {{ d.label }}{% if d.relative %} ({{ d.relative }}){% endif %}: {{ d.date }}
+    {% for d in now.calendar %}- {{ d.label }}{% if d.relative %} ({{ d.relative }}){% endif %}: {{ d.date }}{% if d.holiday %} (festivo: {{ d.holiday.name }}, {% if d.holiday.open %}abierto{% else %}cerrado{% endif %}){% endif %}
     {% endfor %}Paciente: {% if contact.name %}{{ contact.name }}{% else %}nombre aún desconocido{% endif %}.
     {% if contact.upcoming_bookings.size > 0 %}Citas próximas del paciente:
     {% for b in contact.upcoming_bookings %}- {{ b.service_name }}, {{ b.label }} (id {{ b.id }})
@@ -322,6 +322,7 @@ automations:
     trigger: { type: booking.completed, offset: "2h" }
     conditions:
       - { field: business.review_url, exists: true }
+      - { builtin: quiet_hours }
     action: { type: send_template, template: solicitud_resena }
   - key: control_6_meses
     description: Invita a agendar control 6 meses después de la última limpieza.

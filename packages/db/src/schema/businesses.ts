@@ -11,6 +11,15 @@ export interface BusinessLimits {
   marketing_msgs_month?: number;
 }
 
+/**
+ * Public holidays (spec review C2). Every Colombian public holiday closes the business
+ * unless it is listed here; on a listed holiday the weekday's usual hours apply.
+ */
+export interface HolidaySettings {
+  /** Holiday keys ("san_jose"); a choice holds every year until switched off. */
+  open_holidays?: string[];
+}
+
 /** Platform-owner overrides of template agent settings (spec review B12). */
 export interface AgentOverrides {
   model?: string;
@@ -32,6 +41,7 @@ export const businesses = pgTable(
     timezone: text("timezone").notNull().default("America/Bogota"),
     status: text("status", { enum: BUSINESS_STATUSES }).notNull().default("setup"),
     limits: jsonb("limits").$type<BusinessLimits>().notNull().default({}),
+    holidays: jsonb("holidays").$type<HolidaySettings>().notNull().default({}),
     agentOverrides: jsonb("agent_overrides").$type<AgentOverrides>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

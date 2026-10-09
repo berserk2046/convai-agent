@@ -98,20 +98,25 @@ names can be anything ("~", "Mami ❤️", a shop name), so:
   because Meta rejects empty parameters.
 
 **M3:** the agent part is implemented (`for_self`, name checks, profile name only after
-consent). The template-variable part lands with automations in M4.
+consent). **M4:** the template-variable part is implemented.
 
 **A11. Typed "Confirmo" (M4).** Only button taps are mapped, and the agent has no tool to
 confirm a booking. **Recommend:** if the inbound text equals a quick-reply button text
 (normalized) of the last template sent to this contact in the past 72 h, treat it as that
 button tap.
+**Implemented (M4), narrowed:** it only counts while that template is the last message
+the business sent. Otherwise a "Confirmo" said to the agent's read-back of a new booking
+would confirm the old reminder (ADR 0010).
 
 **A12. Button tap during an open handoff (M4).** **Recommend:** run the data actions
 (`update_booking`, `update_contact`), suppress `send_text`/`start_agent`, and notify staff.
+**Implemented (M4).**
 
 **A13. Consent for staff-created contacts (M4, M5, Ley 1581).** Reminders would reach
 patients who never wrote to the bot. **Recommend:** staff must tick "el paciente autorizó el
 tratamiento de datos", which stores `consent_at` and `consent_source = staff`. Automations
 always apply a `has_consent` condition, like `not_opted_out`.
+**M4:** automations always apply both. The staff checkbox comes with the admin (M5).
 
 **A14. Price guard and `after_evaluation` services (M3).** **Recommend:** allowed amounts
 are the prices of `fixed`/`from` services only. An `after_evaluation` price, even if present
@@ -122,6 +127,7 @@ guard allows it. Keep the eval strict as written?
 **A15. `notify_staff` over WhatsApp (M4).** There is no staff number in config and no staff
 template in `wa_templates`. **Recommend:** in v1, an inbox item plus an admin badge.
 WhatsApp to staff comes later, through an optional platform-level template.
+**M4:** inbox items are rows in `staff_notifications`; the admin shows them in M5.
 
 **A16. Meta template changes across versions (M4).** The `<key>_v<major>` name can't change
 within a major version. **Recommend:**
@@ -130,6 +136,9 @@ within a major version. **Recommend:**
   edit limits).
 - Changing variables, buttons or category requires a major bump. The validator compares
   against the previous published version.
+
+**M4:** the template sync job edits a changed body at Meta (behind
+`META_TEMPLATE_SUBMISSION`).
 
 ## B. Smaller resolutions (accepted)
 
@@ -211,7 +220,9 @@ within a major version. **Recommend:**
     **M2 finding:** a WhatsApp BSP (YCloud) reports that from 2026-10-01, service replies
     are billed at the utility rate after 1,000 free per number per month. Meta's pages I
     could fetch don't confirm it. Using Meta's `billable` flag keeps us correct either
-    way, and the rate table gets a `service` entry (M4).
+    way, and the rate table gets a `service` entry.
+    **Moved to M5** (ADR 0010), where `/usage` shows it. Meta's `pricing` is already
+    stored on every message, so nothing is lost meanwhile.
 
 **Templates (M1)**
 
@@ -236,10 +247,11 @@ within a major version. **Recommend:**
 29. A `booking.starts_in` occurrence whose fire time is before the booking was created or
     rescheduled is skipped, so no "reminder" arrives minutes after booking. Queued runs
     re-check that their occurrence key is still current; stale runs become `skipped`.
+    **Implemented (M4).**
 30. `run_sent` means a sent run of that rule for the same subject, and the same occurrence
-    key when both rules are `starts_in`.
+    key when both rules are `starts_in`. **Implemented (M4).**
 31. Meta may classify `solicitud_resena` as MARKETING. Billing and caps use
-    `category_meta`.
+    `category_meta`. **Implemented for caps (M4)**; billing comes with B23 in M5.
 
 **Evals and privacy (M6, M7)**
 
@@ -264,6 +276,9 @@ within a major version. **Recommend:**
 - Closures stay for everything else: vacations, a chair in repair.
 - Where the per-business choice lives gets settled when it's built. A platform setting on
   the business, like `limits`, fits, because every vertical needs it.
+- **Built (2026-10-08, ADR 0009):** 19 holidays a year, including Ley 2578 de 2026's new
+  Chiquinquirá day. The choice is `businesses.holidays.open_holidays`, a list of holiday
+  keys: each holiday can be switched on (open every year) or off (closed, the default).
 
 **C3. Usage warning (M4, principle 10).**
 
@@ -271,3 +286,5 @@ within a major version. **Recommend:**
   cap. That covers AI spend, and also marketing messages once M4 adds that cap.
 - Reaching the cap itself still stops spending and hands off.
 - The channel is whatever M4/M5 builds for staff alerts (A15).
+- **Built (M4, ADR 0010):** one staff notification a month at 90%, and one at the cap
+  itself, for AI spend and for marketing messages.

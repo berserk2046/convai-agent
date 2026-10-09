@@ -42,4 +42,9 @@ export {
   type ValidateOptions,
   type ValidationReport,
 } from "./validate/index.ts";
-export { checkWaTemplate, metaTemplateName, parameterValueProblem } from "./wa-rules.ts";
+export {
+  checkWaTemplate,
+  metaComponents,
+  metaTemplateName,
+  parameterValueProblem,
+} from "./wa-rules.ts";

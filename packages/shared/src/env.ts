@@ -56,6 +56,17 @@ export const agentEnv = z.object({
   LLM_BUDGET_USD_MONTH: z.coerce.number().positive().default(15),
 });
 
+/** Automatic messages (spec §9, principle 10). */
+export const automationsEnv = z.object({
+  /**
+   * "on" creates and edits message templates at Meta. Off until the platform owner
+   * approves submitting templates (spec §15 M4); status sync and webhooks work either way.
+   */
+  META_TEMPLATE_SUBMISSION: z.enum(["off", "on"]).default("off"),
+  /** Monthly marketing-message cap for businesses without their own `limits.marketing_msgs_month`. */
+  MARKETING_MSGS_MONTH: z.coerce.number().int().min(0).default(500),
+});
+
 export const apiEnv = z.object({
   HOST: z.string().default("127.0.0.1"),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3_000),

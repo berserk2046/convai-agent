@@ -60,16 +60,25 @@ export async function sendText(deps: CoreDeps, input: QueueTextInput): Promise<M
   return row;
 }
 
-/** Sends an approved template (allowed outside the window). */
+export interface QueueTemplateInput {
+  businessId: string;
+  conversationId: string;
+  template: TemplatePayload;
+  idempotencyKey: string;
+  /** The body with its parameters filled in: what the person reads. */
+  preview: string;
+  /** Meta's category for this template (requested one until Meta reports its own). */
+  category: string;
+  /** Quick-reply buttons as sent: text and full payload (typed replies, decision A11). */
+  buttons?: readonly { text: string; payload: string }[];
+  /** Extra details kept with the message, e.g. the automation run that sent it. */
+  details?: Record<string, unknown>;
+}
+
+/** Sends an approved template (allowed outside the window). Null if the key was used already. */
 export async function sendTemplate(
   deps: CoreDeps,
-  input: {
-    businessId: string;
-    conversationId: string;
-    template: TemplatePayload;
-    idempotencyKey: string;
-    preview: string;
-  },
+  input: QueueTemplateInput,
 ): Promise<MessageRow | null> {
   const row = await withTenant(deps.db, input.businessId, (tx) =>
     insertOutboundMessage(tx, {
@@ -78,7 +87,12 @@ export async function sendTemplate(
       type: "template",
       // What the person reads, for the inbox and history; purged with retention.
       body: input.preview,
-      payload: { template: input.template },
+      payload: {
+        ...input.details,
+        template: input.template,
+        category: input.category,
+        buttons: input.buttons ?? [],
+      },
       idempotencyKey: input.idempotencyKey,
     }),
   );

@@ -59,7 +59,8 @@ Go to **WhatsApp → Configuration → Webhook**:
 1. Set the callback URL to `https://<tunnel>/webhooks/whatsapp`, and the verify token to your
    `META_VERIFY_TOKEN`.
 2. Click **Verify and save**. The API log shows `webhook verified`.
-3. Subscribe to the **messages** field.
+3. Subscribe to the **messages** field. For automatic messages (section 8), also subscribe
+   to **message_template_status_update** and **template_category_update**.
 
 ## 6. Send a message
 
@@ -92,3 +93,29 @@ This needs an Anthropic API key, which costs money per message. The monthly cap 
 
 The worker logs `agent turn` on every turn, with tokens, `cache_read` and cost. Booking
 events show up as `booking event`.
+
+## 8. Automatic messages (M4)
+
+`pnpm dev:setup` activates the demo clinic, so the worker's sweeper runs its automations
+every minute. Reminders, review requests and recalls are WhatsApp templates, and Meta
+must approve them before anything goes out. Until then each run ends as `skipped` with
+reason `template_not_approved`.
+
+Submitting templates to Meta needs the owner's go-ahead (CLAUDE.md), so it is off by
+default. Once approved:
+
+1. Set `META_TEMPLATE_SUBMISSION=on` in `.env` and restart the worker. Within 15 minutes
+   the `sync-wa-templates` job creates `recordatorio_cita_v1`, `solicitud_resena_v1` and
+   `control_6_meses_v1` in your WhatsApp Business Account. Its log says
+   `template submitted to Meta`.
+2. Meta reviews them, usually within minutes and sometimes up to a day. The status webhook
+   (step 5) marks each one `APPROVED`. The sync job also catches up every 15 minutes.
+3. Book an appointment through the agent for a time more than 24 hours ahead. The reminder
+   arrives 24 hours before the appointment with the **Confirmo** and **Necesito cambiar**
+   buttons:
+   - **Confirmo**, or typing "confirmo", confirms the booking and sends a thank-you.
+   - **Necesito cambiar** hands the conversation to the agent to reschedule.
+
+The worker logs every run with `automation run finished` and its status and reason.
+Notifications for staff (unconfirmed bookings, usage at 90% of a cap) go to the
+`staff_notifications` table until the admin inbox exists (M5).

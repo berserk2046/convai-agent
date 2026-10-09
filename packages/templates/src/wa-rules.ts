@@ -24,6 +24,23 @@ export function metaTemplateName(key: string, major: number): string {
   return `${key}_v${major}`;
 }
 
+/**
+ * The template's components as Meta's template API takes them (positional parameters):
+ * the body with one sample per placeholder, then the quick-reply buttons.
+ */
+export function metaComponents(template: WaTemplate): Record<string, unknown>[] {
+  const body: Record<string, unknown> = { type: "BODY", text: template.body };
+  if (template.examples.length > 0) body.example = { body_text: [[...template.examples]] };
+  if (template.buttons.length === 0) return [body];
+  return [
+    body,
+    {
+      type: "BUTTONS",
+      buttons: template.buttons.map((b) => ({ type: "QUICK_REPLY", text: b.text })),
+    },
+  ];
+}
+
 export function checkWaTemplate(template: WaTemplate): RuleIssue[] {
   const issues: RuleIssue[] = [];
   const error = (path: DocPath, message: string) =>

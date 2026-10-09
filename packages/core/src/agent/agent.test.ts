@@ -9,9 +9,11 @@ import {
   getContact,
   getConversation,
   handoffs,
+  listStaffNotifications,
   listUnprocessedInbound,
   messages,
   recordUsage,
+  updateBusinessHolidays,
   withTenant,
 } from "@platform/db";
 import type { LlmClient } from "@platform/llm";
@@ -23,7 +25,7 @@ import { createChannelResolver, ingestWebhookEvents } from "../inbound/ingest.ts
 import { processInboundBatch } from "../inbound/process.ts";
 import { createCoreHarness, type CoreHarness } from "../testing.ts";
 import { createAgentResponder } from "./responder.ts";
-import { loadTurn } from "./turn.ts";
+import { dynamicBlock, loadTurn } from "./turn.ts";
 import { AGENT_TOOLS } from "./tools/registry.ts";
 import type { BookingEvent } from "./tools/types.ts";
 
@@ -479,6 +481,59 @@ describe("booking with server-enforced confirmation (decision A5)", () => {
   });
 });
 
+describe("public holidays (spec review C2)", () => {
+  const holiday = {
+    service_key: "limpieza",
+    date_from: "2026-10-12",
+    date_to: "2026-10-12",
+  };
+
+  it("are closed by default: no slots, and the calendar says so", async () => {
+    const job = await receive("573200000060", "¿Tienen cita el lunes festivo?");
+    await giveConsent("573200000060");
+    const turn = await turnFor(job);
+    const { result } = await AGENT_TOOLS.check_availability.run(turn.tool, holiday, {});
+    expect(result).toMatchObject({
+      slots: [],
+      closed_holidays: [{ date: "2026-10-12", name: "Día de la Diversidad Étnica y Cultural" }],
+    });
+    const booked = await AGENT_TOOLS.book.run(
+      turn.tool,
+      {
+        service_key: "limpieza",
+        starts_at: "2026-10-12T10:00:00-05:00",
+        subject_name: "Ana Pérez",
+        for_self: true,
+        confirmed_by_customer: true,
+      },
+      { require_explicit_confirmation: false },
+    );
+    expect(booked.result.status).toBe("unavailable");
+    expect(await dynamicBlock(turn, [])).toContain(
+      "- lunes 12 de octubre: 2026-10-12 (festivo: Día de la Diversidad Étnica y Cultural, cerrado)",
+    );
+  });
+
+  it("open with the weekday's hours when the business chose to open", async () => {
+    await updateBusinessHolidays(h.testDb.db, h.business.id, {
+      open_holidays: ["diversidad_etnica_y_cultural"],
+    });
+    try {
+      const job = await receive("573200000061", "¿Tienen cita el lunes festivo?");
+      await giveConsent("573200000061");
+      const turn = await turnFor(job);
+      const { result } = await AGENT_TOOLS.check_availability.run(turn.tool, holiday, {});
+      expect((result.slots as unknown[]).length).toBeGreaterThan(0);
+      expect(result.closed_holidays).toBeUndefined();
+      expect(await dynamicBlock(turn, [])).toContain(
+        "2026-10-12 (festivo: Día de la Diversidad Étnica y Cultural, abierto)",
+      );
+    } finally {
+      await updateBusinessHolidays(h.testDb.db, h.business.id, {});
+    }
+  });
+});
+
 describe("confirmation can't be carried over (decision A5)", () => {
   const tuesday = (time: string) => `2026-10-13T${time}:00-05:00`;
   const book = (name: string, startsAt: string, extra: Record<string, unknown> = {}) => ({
@@ -621,6 +676,28 @@ describe("guardrails before the model", () => {
       "Ya le paso su mensaje a una persona del equipo. Le respondemos en horario de atención lo antes posible.",
     ]);
     await h.testDb.pool.query("DELETE FROM usage_events WHERE cost_usd = 25");
+  });
+
+  it("at 90% of the monthly AI cap, the business gets one notification (C3)", async () => {
+    await recordUsage(h.testDb.db, {
+      businessId: h.business.id,
+      kind: "llm",
+      units: 1,
+      costUsd: 18.5,
+    });
+    await say("573200000024", "Hola", [{ text: "Hola, ¿en qué le ayudo?" }]);
+    await say("573200000024", "¿Atienden el sábado?", [{ text: "Sí, de 8:00 a. m. a 1:00 p. m." }]);
+    const usage = (
+      await withTenant(h.testDb.db, h.business.id, (tx) =>
+        listStaffNotifications(tx, h.business.id),
+      )
+    ).filter((n) => n.kind === "usage");
+    expect(usage.map((n) => n.payload.percent)).toEqual([90]);
+    expect(usage[0]?.text).toMatch(
+      /^Ya se usó el 90 % del límite mensual de inteligencia artificial \(18,5\d de 20,00 USD\)/,
+    );
+    expect(h.logs.filter((l) => l.alert === "usage_llm_90")).toHaveLength(1);
+    await h.testDb.pool.query("DELETE FROM usage_events WHERE cost_usd = 18.5");
   });
 });
 

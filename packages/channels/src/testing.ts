@@ -18,7 +18,11 @@ export type FixtureName =
   | "unsupported-message"
   | "status-sent"
   | "status-sent-minimal"
-  | "status-failed";
+  | "status-failed"
+  | "template-status-approved"
+  | "template-status-rejected"
+  | "template-category-impending"
+  | "template-category-changed";
 
 /** A fresh copy of a recorded webhook payload (see fixtures/README.md). */
 export function webhookFixture(name: FixtureName): Record<string, unknown> {

@@ -108,6 +108,15 @@ describe("findCandidates", () => {
     expect(times(input({ blocked: [repair] })).every((t) => t < "2026-10-08 13:00")).toBe(true);
   });
 
+  it("skips the dates the business is closed for a public holiday", () => {
+    const week = input({ dateFrom: "2026-10-12", dateTo: "2026-10-13" });
+    expect(new Set(times(week).map((t) => t.slice(0, 10)))).toEqual(
+      new Set(["2026-10-12", "2026-10-13"]),
+    );
+    const closed = times({ ...week, closedDates: ["2026-10-12"] });
+    expect(new Set(closed.map((t) => t.slice(0, 10)))).toEqual(new Set(["2026-10-13"]));
+  });
+
   it("applies the minimum notice", () => {
     const today = times(input({ dateFrom: "2026-10-05", dateTo: "2026-10-05" }));
     expect(today[0]).toBe("2026-10-05 11:00"); // now 09:00 + 2 h

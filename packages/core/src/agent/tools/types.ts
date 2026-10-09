@@ -4,7 +4,7 @@ import type { Logger } from "@platform/shared";
 import type { BookingRules, PreparedTemplate, ToolName } from "@platform/templates";
 import type { z } from "zod";
 
-/** Booking lifecycle events. M4's automations engine consumes them; until then they're logged. */
+/** Booking lifecycle events; the automations engine turns them into runs (ADR 0010). */
 export interface BookingEvent {
   type: "booking.created" | "booking.rescheduled" | "booking.cancelled" | "booking.completed";
   businessId: string;

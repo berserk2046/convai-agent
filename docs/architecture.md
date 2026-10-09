@@ -136,6 +136,15 @@ buffer)` fits. Apply `min_notice_hours`, `max_days_ahead` and the `time_of_day` 
   webhooks, and billing uses the category Meta reports. A non-approved template blocks its
   automation.
 
+Implementation details are in `docs/decisions/0010-automations-engine.md`:
+
+- runs and their occurrence keys;
+- the sweeper's queries;
+- the checks at send time;
+- button handling inside the agent;
+- the Meta template reconcile job behind `META_TEMPLATE_SUBMISSION`;
+- usage warnings at 90% of a cap.
+
 ## Template system
 
 - **Top-level keys:** `manifest`, `config_schema`, `contact_fields?`, `consent`, `booking`

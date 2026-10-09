@@ -58,6 +58,11 @@ export async function listActiveResources(
     .orderBy(asc(resources.name));
 }
 
+export async function getResource(db: Executor, resourceId: string): Promise<ResourceRow | null> {
+  const [row] = await db.select().from(resources).where(eq(resources.id, resourceId));
+  return row ?? null;
+}
+
 export async function createClosure(
   db: Executor,
   input: {

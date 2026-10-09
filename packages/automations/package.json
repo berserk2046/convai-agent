@@ -1,0 +1,30 @@
+{
+  "name": "@platform/automations",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@platform/channels": "workspace:*",
+    "@platform/core": "workspace:*",
+    "@platform/db": "workspace:*",
+    "@platform/scheduling": "workspace:*",
+    "@platform/shared": "workspace:*",
+    "@platform/templates": "workspace:*",
+    "bullmq": "^6.3.11",
+    "ioredis": "^5.11.1",
+    "luxon": "^3.7.2"
+  },
+  "devDependencies": {
+    "@platform/llm": "workspace:*",
+    "@types/luxon": "^3.7.6",
+    "drizzle-orm": "^0.45.3"
+  }
+}

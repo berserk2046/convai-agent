@@ -24,7 +24,14 @@ describe("createSecretBox", () => {
       createSecretBox(randomBytes(32).toString("base64")).decrypt(sealed, "channel:1"),
     ).toThrow(/could not be decrypted/);
     const parts = sealed.split(".");
-    const flipped = [parts[0], parts[1], parts[2], `A${(parts[3] ?? "").slice(1)}`].join(".");
+    // Always a different first character (replacing it with "A" was a no-op 1 time in 64).
+    const tag = parts[3] ?? "";
+    const flipped = [
+      parts[0],
+      parts[1],
+      parts[2],
+      `${tag.startsWith("A") ? "B" : "A"}${tag.slice(1)}`,
+    ].join(".");
     expect(() => box.decrypt(flipped, "channel:1")).toThrow();
   });
 

@@ -1,6 +1,7 @@
 import {
   ConfigError,
   agentEnv,
+  automationsEnv,
   baseEnv,
   databaseEnv,
   encryptionEnv,
@@ -16,7 +17,8 @@ const workerEnv = baseEnv
   .extend(metaEnv.pick({ META_GRAPH_VERSION: true, META_GRAPH_BASE_URL: true }).shape)
   .extend(encryptionEnv.shape)
   .extend(inboundEnv.shape)
-  .extend(agentEnv.shape);
+  .extend(agentEnv.shape)
+  .extend(automationsEnv.shape);
 
 export function loadWorkerConfig(env: Record<string, string | undefined> = process.env) {
   const config = parseEnv(workerEnv, env);

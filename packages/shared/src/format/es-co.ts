@@ -1,4 +1,5 @@
 import type { DateTime } from "luxon";
+import { holidayOn } from "../holidays-co.ts";
 
 /**
  * Spanish (Colombia) labels for dates, times and money. Built from explicit tables instead
@@ -87,22 +88,34 @@ export interface CalendarDay {
   label: string;
   /** "hoy", "mañana", "pasado mañana", or null. */
   relative: string | null;
+  /** The public holiday that day; `open` when the business chose to open on it anyway. */
+  holiday: { name: string; open: boolean } | null;
 }
 
 const RELATIVE_DAYS = ["hoy", "mañana", "pasado mañana"];
 
+export interface CalendarOptions {
+  /** How many days, today included. Default 14. */
+  days?: number;
+  /** Keys of the holidays the business opens on every year (spec review C2), e.g. "san_jose". */
+  openHolidays?: readonly string[];
+}
+
 /**
- * The next `days` days starting today in the DateTime's zone. Lets the agent look up
- * "el jueves" or "mañana" instead of doing date arithmetic itself.
+ * The next days starting today in the DateTime's zone, with public holidays marked. Lets
+ * the agent look up "el jueves" or "mañana" instead of doing date arithmetic itself.
  */
-export function buildCalendar(now: DateTime, days = 14): CalendarDay[] {
+export function buildCalendar(now: DateTime, options: CalendarOptions = {}): CalendarDay[] {
   const start = now.startOf("day");
-  return Array.from({ length: days }, (_, i) => {
+  return Array.from({ length: options.days ?? 14 }, (_, i) => {
     const day = start.plus({ days: i });
+    const date = day.toISODate() ?? "";
+    const holiday = holidayOn(date, options.openHolidays);
     return {
-      date: day.toISODate() ?? "",
+      date,
       label: formatDayLabel(day),
       relative: RELATIVE_DAYS[i] ?? null,
+      holiday: holiday === null ? null : { name: holiday.name, open: holiday.open },
     };
   });
 }

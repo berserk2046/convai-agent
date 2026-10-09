@@ -207,6 +207,7 @@ describe("sendText and sendTemplate", () => {
       conversationId: job.conversationId,
       idempotencyKey: "recordatorio_24h:run-1",
       preview: "Hola Laura, le recordamos su cita…",
+      category: "UTILITY",
       template: {
         name: "recordatorio_cita_v1",
         languageCode: "es",

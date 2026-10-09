@@ -120,6 +120,19 @@ export async function insertOutboundMessage(
   return row ?? null;
 }
 
+/** The outgoing message created with this idempotency key, if any. */
+export async function getMessageByIdempotencyKey(
+  db: Executor,
+  businessId: string,
+  idempotencyKey: string,
+): Promise<MessageRow | null> {
+  const [row] = await db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.businessId, businessId), eq(messages.idempotencyKey, idempotencyKey)));
+  return row ?? null;
+}
+
 /** Outgoing messages nobody has tried to send yet, oldest first. */
 export async function listUnsentOutbound(
   db: Executor,

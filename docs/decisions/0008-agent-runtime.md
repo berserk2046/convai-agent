@@ -86,7 +86,7 @@ None of this has run against the live API yet, because there is no API key (see 
     every reply inserted in one transaction got the same time, so a consent message and the
     agent's answer could go out in either order.
 11. **Booking events** (`booking.created`, `rescheduled`, `cancelled`, `completed`) go to an
-    `EventSink`. Until M4's automations consume them, the sink logs them.
+    `EventSink`. The automations engine turns them into runs (ADR 0010).
     - A maintenance job scheduler (BullMQ) marks bookings completed 60 minutes after they
       end, every 10 minutes.
     - Calendar sync goes through the `SchedulingProvider` interface (built-in no-op until
@@ -96,8 +96,9 @@ None of this has run against the live API yet, because there is no API key (see 
       buffer inside opening hours.
     - Existing bookings are extended by the buffer. Minimum notice and `max_days_ahead`
       apply.
-    - Closures with no resource apply to the whole business. For now holidays are entered
-      as closures. Built-in Colombian holidays are decided and come next (spec review C2).
+    - Closures with no resource apply to the whole business. Public holidays are built in
+      and close the business unless it opens on them (ADR 0009). Closures are for
+      everything else: vacations, a chair in repair.
     - Offers are spread across days and times. `around_time` (A7) returns the exact time
       when free, plus the nearest alternatives.
 
@@ -113,5 +114,3 @@ None of this has run against the live API yet, because there is no API key (see 
 
 - Live check with an Anthropic key: `count_tokens` for the prefix, a cache hit on the second
   turn, and the full M3 eval scenarios.
-- Built-in Colombian public holidays, with a per-business choice to open on them (spec
-  review C2, decided 2026-10-08, not built yet).

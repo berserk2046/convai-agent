@@ -43,7 +43,13 @@ function events(name: FixtureName, waMessageId?: string): WebhookEvent[] {
 describe("ingestWebhookEvents", () => {
   it("stores a text message, opens the service window and enqueues a batch", async () => {
     const summary = await ingestWebhookEvents(deps, events("text-message"));
-    expect(summary).toEqual({ stored: 1, duplicates: 0, statuses: 0, unknownPhoneNumberIds: [] });
+    expect(summary).toEqual({
+      stored: 1,
+      duplicates: 0,
+      statuses: 0,
+      templateUpdates: 0,
+      unknownPhoneNumberIds: [],
+    });
 
     const [message] = await h.testDb.db.select().from(messages);
     expect(message).toMatchObject({
@@ -100,6 +106,7 @@ describe("ingestWebhookEvents", () => {
       stored: 0,
       duplicates: 0,
       statuses: 0,
+      templateUpdates: 0,
       unknownPhoneNumberIds: ["999999"],
     });
     expect(h.logs).toContainEqual(

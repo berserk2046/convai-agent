@@ -104,6 +104,27 @@ describe("odontologia dynamic context", () => {
     expect(text).toContain("- jueves 8 de octubre: 2026-10-08");
     expect(text).not.toContain("Citas próximas");
   });
+
+  it("marks public holidays closed, or open when the business chose to open", () => {
+    const contact = buildContactContext({ name: null, fields: {}, upcomingBookings: [] }, []);
+    const render = (openHolidays: string[]) =>
+      renderDynamicBlock(renderer, template, {
+        business,
+        agent: agentSettings(template),
+        booking: rules,
+        now: buildNowContext(
+          DateTime.fromISO("2026-10-05T09:00:00-05:00").setZone("America/Bogota"),
+          openHolidays,
+        ),
+        contact,
+      });
+    expect(render([])).toContain(
+      "- lunes 12 de octubre: 2026-10-12 (festivo: Día de la Diversidad Étnica y Cultural, cerrado)",
+    );
+    expect(render(["diversidad_etnica_y_cultural"])).toContain(
+      "2026-10-12 (festivo: Día de la Diversidad Étnica y Cultural, abierto)",
+    );
+  });
 });
 
 describe("tidy", () => {

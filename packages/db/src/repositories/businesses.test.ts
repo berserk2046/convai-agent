@@ -1,7 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { InvalidInputError, TemplateNotPublishedError } from "../errors.ts";
+import { BusinessNotFoundError, InvalidInputError, TemplateNotPublishedError } from "../errors.ts";
+import { withTenant } from "../tenant.ts";
 import { createTestDatabase, type TestDatabase } from "../testing.ts";
-import { createBusiness, getBusiness, updateBusinessConfig } from "./businesses.ts";
+import {
+  createBusiness,
+  getBusiness,
+  setHolidayOpen,
+  updateBusinessConfig,
+  updateBusinessHolidays,
+} from "./businesses.ts";
 import { ODONTOLOGIA_SAMPLE_CONFIG, ODONTOLOGIA_SOURCE, publishOdontologia } from "./fixtures.ts";
 import { saveTemplateDraft } from "./templates.ts";
 
@@ -31,7 +38,12 @@ describe("createBusiness", () => {
       ...pinned,
       config: sampleConfig,
     });
-    expect(business).toMatchObject({ status: "setup", timezone: "America/Bogota", limits: {} });
+    expect(business).toMatchObject({
+      status: "setup",
+      timezone: "America/Bogota",
+      limits: {},
+      holidays: {},
+    });
     const services = business.config?.services as Record<string, unknown>[];
     expect(services[0]).toMatchObject({ key: "valoracion", bookable: true });
     expect(services.find((s) => s.key === "endodoncia")?.bookable).toBe(false);
@@ -109,5 +121,51 @@ describe("updateBusinessConfig", () => {
     await expect(
       testDb.pool.query("UPDATE businesses SET status = 'active' WHERE id = $1", [business.id]),
     ).rejects.toMatchObject({ code: "23514" });
+  });
+});
+
+describe("holidays (spec review C2)", () => {
+  it("stores the holidays a business opens on every year, sorted and without repeats", async () => {
+    const business = await createBusiness(testDb.db, {
+      name: "Abre festivos",
+      ...pinned,
+      holidays: { open_holidays: ["san_jose", "diversidad_etnica_y_cultural", "san_jose"] },
+    });
+    expect(business.holidays).toEqual({
+      open_holidays: ["diversidad_etnica_y_cultural", "san_jose"],
+    });
+  });
+
+  it("rejects keys that aren't Colombian public holidays", async () => {
+    const error = await createBusiness(testDb.db, {
+      name: "X",
+      ...pinned,
+      holidays: { open_holidays: ["san_jose", "halloween"] },
+    }).catch((e: unknown) => e);
+    expect((error as InvalidInputError).issues).toEqual([
+      { path: "holidays.open_holidays[1]", message: "is not a Colombian public holiday" },
+    ]);
+  });
+
+  it("switches holidays on and off inside the business's tenant scope", async () => {
+    const business = await createBusiness(testDb.db, { name: "Clínica festivos", ...pinned });
+    const toggle = (key: string, open: boolean) =>
+      withTenant(testDb.db, business.id, (tx) => setHolidayOpen(tx, business.id, key, open));
+    await toggle("inmaculada_concepcion", true);
+    await toggle("san_jose", true);
+    expect((await toggle("inmaculada_concepcion", false)).holidays).toEqual({
+      open_holidays: ["san_jose"],
+    });
+    await expect(toggle("halloween", true)).rejects.toBeInstanceOf(InvalidInputError);
+
+    const other = await createBusiness(testDb.db, { name: "Otra", ...pinned });
+    await expect(
+      withTenant(testDb.db, other.id, (tx) =>
+        updateBusinessHolidays(tx, business.id, { open_holidays: [] }),
+      ),
+    ).rejects.toBeInstanceOf(BusinessNotFoundError);
+    expect((await getBusiness(testDb.db, business.id))?.holidays).toEqual({
+      open_holidays: ["san_jose"],
+    });
   });
 });

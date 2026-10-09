@@ -103,19 +103,74 @@ describe("parseWebhook with Meta's recorded payloads", () => {
     });
   });
 
-  it("flags other webhook fields as unhandled", () => {
+  it("template approved", () => {
+    expect(events("template-status-approved")).toEqual([
+      {
+        kind: "template_status",
+        wabaId: "102290129340398",
+        update: {
+          templateId: "1689556908129832",
+          name: "order_confirmation",
+          language: "en_US",
+          event: "APPROVED",
+          reason: "NONE",
+          category: "UTILITY",
+          info: {},
+          at: new Date(1751247548 * 1000),
+        },
+      },
+    ]);
+  });
+
+  it("template rejected keeps Meta's explanation", () => {
+    const [event] = events("template-status-rejected");
+    expect(event).toMatchObject({
+      kind: "template_status",
+      update: {
+        event: "REJECTED",
+        reason: "INVALID_FORMAT",
+        language: "en",
+        info: { rejection_info: { recommendation: expect.stringContaining("Separate") } },
+      },
+    });
+  });
+
+  it("template category: announced and done changes", () => {
+    expect(events("template-category-impending")[0]).toMatchObject({
+      kind: "template_category",
+      update: {
+        templateId: "278077987957091",
+        newCategory: "UTILITY",
+        correctCategory: "MARKETING",
+        previousCategory: null,
+        effectiveAt: new Date(1746169200 * 1000),
+      },
+    });
+    expect(events("template-category-changed")[0]).toMatchObject({
+      kind: "template_category",
+      update: { newCategory: "MARKETING", previousCategory: "UTILITY", correctCategory: null },
+    });
+  });
+
+  it("flags other webhook fields, and template updates it can't read, as unhandled", () => {
     const payload = {
       object: "whatsapp_business_account",
       entry: [
         {
           id: "1",
-          changes: [{ field: "message_template_status_update", value: { event: "APPROVED" } }],
+          changes: [
+            { field: "message_template_status_update", value: { event: "APPROVED" } },
+            { field: "account_update", value: {} },
+          ],
         },
       ],
     };
     expect(parseWebhook(payload)).toEqual({
       ok: true,
-      events: [{ kind: "unhandled", field: "message_template_status_update", phoneNumberId: null }],
+      events: [
+        { kind: "unhandled", field: "message_template_status_update", phoneNumberId: null },
+        { kind: "unhandled", field: "account_update", phoneNumberId: null },
+      ],
     });
   });
 

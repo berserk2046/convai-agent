@@ -11,6 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@platform/automations": "workspace:*",
     "@platform/channels": "workspace:*",
     "@platform/core": "workspace:*",
     "@platform/db": "workspace:*",

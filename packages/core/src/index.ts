@@ -1,15 +1,19 @@
-export { loggingEventSink } from "./agent/events.ts";
 export { createAgentResponder, type AgentDeps } from "./agent/responder.ts";
 export { AGENT_TOOLS } from "./agent/tools/registry.ts";
 export type { BookingEvent, EventSink } from "./agent/tools/types.ts";
 export type { CoreDeps } from "./deps.ts";
 export {
+  COMPLETE_BOOKINGS_EVERY_MS,
   MAINTENANCE_QUEUE,
   completeBookings,
   createMaintenanceQueue,
   createMaintenanceWorker,
   scheduleMaintenance,
+  type MaintenanceJob,
 } from "./maintenance.ts";
+export type { ButtonHandler, ButtonInput, ButtonOutcome } from "./agent/buttons.ts";
+export { monthStart, normalize } from "./agent/guardrails.ts";
+export { USAGE_THRESHOLDS, usageText, warnOnUsage, type UsageCap } from "./usage.ts";
 export {
   createChannelResolver,
   ingestWebhookEvents,
@@ -41,6 +45,7 @@ export {
   deliverPending,
   sendTemplate,
   sendText,
+  type QueueTemplateInput,
   type QueueTextInput,
   type TemplatePayload,
 } from "./outbound.ts";

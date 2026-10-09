@@ -6,6 +6,7 @@ import {
   type TimeOfDay,
   type WeeklyHours,
 } from "@platform/scheduling";
+import { holidayOn, holidaysBetween, type PublicHoliday } from "@platform/shared";
 import { PLATFORM_TYPE_KEYWORD } from "@platform/templates";
 import { DateTime } from "luxon";
 import type { CatalogItem } from "./catalog.ts";
@@ -124,8 +125,19 @@ export async function searchSlots(ctx: ToolContext, search: SlotSearch): Promise
       ...data.closures.map((c) => ({ resourceId: c.resourceId, start: c.startsAt, end: c.endsAt })),
       ...providerBusy,
     ],
+    closedDates: closedHolidays(
+      ctx,
+      window.from.toISODate() ?? "",
+      window.to.toISODate() ?? "",
+    ).map((h) => h.date),
     timeOfDay: search.timeOfDay,
   });
+}
+
+/** Public holidays in [from, to] (local dates) the business doesn't open on (C2). */
+export function closedHolidays(ctx: ToolContext, from: string, to: string): PublicHoliday[] {
+  const open = ctx.business.holidays.open_holidays ?? [];
+  return holidaysBetween(from, to).filter((h) => holidayOn(h.date, open)?.open === false);
 }
 
 /** Local "YYYY-MM-DD" of an instant in the business timezone. */

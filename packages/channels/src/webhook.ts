@@ -49,6 +49,30 @@ const status = z.looseObject({
   errors: z.array(statusError).optional(),
 });
 
+/** `message_template_status_update` (Meta's webhook reference, fetched 2026-10-08). */
+const templateStatus = z.looseObject({
+  event: z.string(),
+  message_template_id: z.union([z.number(), z.string()]),
+  message_template_name: z.string(),
+  message_template_language: z.string(),
+  reason: z.string().nullable().optional(),
+  message_template_category: z.string().optional(),
+  rejection_info: z.looseObject({}).optional(),
+  disable_info: z.looseObject({}).optional(),
+  other_info: z.looseObject({}).optional(),
+});
+
+/** `template_category_update`: an announced change (correct_category) or a done one (previous_category). */
+const templateCategory = z.looseObject({
+  message_template_id: z.union([z.number(), z.string()]),
+  message_template_name: z.string(),
+  message_template_language: z.string(),
+  new_category: z.string(),
+  previous_category: z.string().optional(),
+  correct_category: z.string().optional(),
+  category_update_timestamp: z.number().optional(),
+});
+
 const change = z.looseObject({
   field: z.string(),
   value: z.looseObject({
@@ -68,7 +92,9 @@ const change = z.looseObject({
 
 const payload = z.looseObject({
   object: z.literal("whatsapp_business_account"),
-  entry: z.array(z.looseObject({ id: z.string(), changes: z.array(change) })),
+  entry: z.array(
+    z.looseObject({ id: z.string(), time: z.number().optional(), changes: z.array(change) }),
+  ),
 });
 
 /** Message types the bot responds to; everything else is stored and left alone (B16). */
@@ -123,9 +149,41 @@ export interface StatusUpdate {
   errors: { code: number; title: string | null; details: string | null }[];
 }
 
+/** A Meta message template changed status (approved, rejected, paused…). */
+export interface TemplateStatusUpdate {
+  /** Meta's template id. Webhooks send it as a JSON number; match by name and language too. */
+  templateId: string;
+  name: string;
+  /** Normalized to Meta's API form: "en-US" → "en_US". */
+  language: string;
+  /** Meta's event: APPROVED, REJECTED, PENDING, PAUSED, DISABLED, FLAGGED, REINSTATED… */
+  event: string;
+  reason: string | null;
+  category: string | null;
+  /** rejection_info, disable_info and other_info, when present. */
+  info: Record<string, unknown>;
+  at: Date;
+}
+
+/** Meta announced (or made) a category change; billing uses Meta's category (B31). */
+export interface TemplateCategoryUpdate {
+  templateId: string;
+  name: string;
+  language: string;
+  /** Done change: the category from now on. Announced change: still the current one. */
+  newCategory: string;
+  previousCategory: string | null;
+  /** Announced change: the category it will get, and when. */
+  correctCategory: string | null;
+  effectiveAt: Date | null;
+  at: Date;
+}
+
 export type WebhookEvent =
   | { kind: "message"; phoneNumberId: string; message: InboundMessage }
   | { kind: "status"; phoneNumberId: string; status: StatusUpdate }
+  | { kind: "template_status"; wabaId: string; update: TemplateStatusUpdate }
+  | { kind: "template_category"; wabaId: string; update: TemplateCategoryUpdate }
   | { kind: "unhandled"; field: string; phoneNumberId: string | null };
 
 export type ParseResult = { ok: true; events: WebhookEvent[] } | { ok: false; error: string };
@@ -138,7 +196,13 @@ export function parseWebhook(body: unknown): ParseResult {
   }
   const events: WebhookEvent[] = [];
   for (const entry of parsed.data.entry) {
+    const at = entry.time === undefined ? new Date() : fromUnixSeconds(String(entry.time));
     for (const { field, value } of entry.changes) {
+      const template = templateEvent(field, value, entry.id, at);
+      if (template) {
+        events.push(template);
+        continue;
+      }
       const phoneNumberId = value.metadata?.phone_number_id ?? null;
       if (field !== "messages" || phoneNumberId === null) {
         events.push({ kind: "unhandled", field, phoneNumberId });
@@ -158,6 +222,65 @@ export function parseWebhook(body: unknown): ParseResult {
     }
   }
   return { ok: true, events };
+}
+
+/** Template webhooks carry the WABA id in entry.id and no phone number metadata. */
+function templateEvent(
+  field: string,
+  value: unknown,
+  wabaId: string,
+  at: Date,
+): WebhookEvent | null {
+  if (field === "message_template_status_update") {
+    const v = templateStatus.safeParse(value);
+    if (!v.success) return null;
+    const { rejection_info, disable_info, other_info } = v.data;
+    return {
+      kind: "template_status",
+      wabaId,
+      update: {
+        templateId: String(v.data.message_template_id),
+        name: v.data.message_template_name,
+        language: metaLanguage(v.data.message_template_language),
+        event: v.data.event,
+        reason: v.data.reason ?? null,
+        category: v.data.message_template_category ?? null,
+        info: Object.fromEntries(
+          Object.entries({ rejection_info, disable_info, other_info }).filter(
+            ([, x]) => x !== undefined,
+          ),
+        ),
+        at,
+      },
+    };
+  }
+  if (field === "template_category_update") {
+    const v = templateCategory.safeParse(value);
+    if (!v.success) return null;
+    return {
+      kind: "template_category",
+      wabaId,
+      update: {
+        templateId: String(v.data.message_template_id),
+        name: v.data.message_template_name,
+        language: metaLanguage(v.data.message_template_language),
+        newCategory: v.data.new_category,
+        previousCategory: v.data.previous_category ?? null,
+        correctCategory: v.data.correct_category ?? null,
+        effectiveAt:
+          v.data.category_update_timestamp === undefined
+            ? null
+            : fromUnixSeconds(String(v.data.category_update_timestamp)),
+        at,
+      },
+    };
+  }
+  return null;
+}
+
+/** Webhooks write "en-US" where the template API uses "en_US". */
+export function metaLanguage(code: string): string {
+  return code.replace("-", "_");
 }
 
 function toInboundMessage(m: z.infer<typeof message>, profileName: string | null): InboundMessage {

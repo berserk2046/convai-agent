@@ -22,6 +22,8 @@ import {
 import { alert } from "@platform/shared";
 import type { ToolName } from "@platform/templates";
 import type { InboundBatch, Reply, Responder, ResponderInfo } from "../inbound/process.ts";
+import { warnOnUsage } from "../usage.ts";
+import type { ButtonHandler } from "./buttons.ts";
 import {
   allowedPrices,
   capReplyLength,
@@ -48,6 +50,8 @@ export interface AgentDeps extends TurnDeps {
   llm: LlmClient;
   /** Monthly LLM cap when the business has none of its own (principle 10). */
   llmBudgetUsdMonth: number;
+  /** Template button replies (spec §9), from the automations package. */
+  buttons?: ButtonHandler;
 }
 
 /** Message types the agent can't read (spec §7.2: reply with unsupported_media). */
@@ -104,12 +108,25 @@ async function respond(
     log(deps, turn).info("contact opted out of automatic messages");
     return [fixed(guardrails.opt_out_reply)];
   }
+  const tap = deps.buttons
+    ? await deps.buttons({
+        business: tool.business,
+        prepared: tool.prepared,
+        conversation: tool.conversation,
+        contact: tool.contact,
+        messages: batch.messages,
+        text,
+        now: tool.now,
+      })
+    : null;
+  if (tap && tap.agentNote === null) return tap.replies;
   if (tool.conversation.mode === "human") {
     // Principle 7: a person is handling it; the message waits for them in the inbox.
     log(deps, turn).info("message for staff (handoff open)");
     return [];
   }
-  const replies: Reply[] = [];
+  const replies: Reply[] = [...(tap?.replies ?? [])];
+  const tapNotes = tap?.agentNote ? [tap.agentNote] : [];
   if (hasMedia) {
     replies.push(fixed(template.agent.unsupported_media));
     if (!text) return replies;
@@ -129,7 +146,9 @@ async function respond(
   replies.push(...consent.replies);
   if (!consent.runAgent) return replies;
 
-  replies.push(...(await agentReplies(deps, turn, batch, info, consent.notes, fixed)));
+  replies.push(
+    ...(await agentReplies(deps, turn, batch, info, [...consent.notes, ...tapNotes], fixed)),
+  );
   return replies;
 }
 
@@ -157,12 +176,19 @@ async function emergency(deps: AgentDeps, turn: Turn): Promise<boolean> {
 }
 
 async function overBudget(deps: AgentDeps, turn: Turn): Promise<boolean> {
+  return (await llmSpend(turn)) >= llmBudget(deps, turn);
+}
+
+function llmBudget(deps: AgentDeps, turn: Turn): number {
+  return turn.tool.business.limits.llm_usd_month ?? deps.llmBudgetUsdMonth;
+}
+
+/** This month's LLM spend, in USD. */
+async function llmSpend(turn: Turn): Promise<number> {
   const { tool } = turn;
-  const budget = tool.business.limits.llm_usd_month ?? deps.llmBudgetUsdMonth;
-  const spent = await withTenant(tool.db, tool.business.id, (tx) =>
+  return withTenant(tool.db, tool.business.id, (tx) =>
     usageCostSince(tx, tool.business.id, "llm", monthStart(tool.now, tool.timezone)),
   );
-  return spent >= budget;
 }
 
 /** Decision A9: consent message once (daily at most when FAQ isn't allowed), acceptance unlocks booking. */
@@ -403,6 +429,15 @@ async function recordSpend(
   );
   // cache_read shows whether prompt caching actually works (spec §7.4).
   log(deps, turn).info({ model, usage, cost_usd: cost }, "agent turn");
+  // Spec review C3: tell the business at 90% of the monthly cap, and at the cap.
+  await warnOnUsage(deps, {
+    businessId: tool.business.id,
+    cap: "llm",
+    used: await llmSpend(turn),
+    limit: llmBudget(deps, turn),
+    now: tool.now,
+    timezone: tool.timezone,
+  });
 }
 
 async function executeTool(

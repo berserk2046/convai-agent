@@ -19,6 +19,19 @@ describe("loadWorkerConfig", () => {
     });
   });
 
+  it("keeps template submission to Meta off unless turned on", () => {
+    expect(loadWorkerConfig(env)).toMatchObject({
+      META_TEMPLATE_SUBMISSION: "off",
+      MARKETING_MSGS_MONTH: 500,
+    });
+    expect(
+      loadWorkerConfig({ ...env, META_TEMPLATE_SUBMISSION: "on" }).META_TEMPLATE_SUBMISSION,
+    ).toBe("on");
+    expect(() => loadWorkerConfig({ ...env, META_TEMPLATE_SUBMISSION: "yes" })).toThrow(
+      /META_TEMPLATE_SUBMISSION/,
+    );
+  });
+
   it("requires the Graph version and a 32-byte key", () => {
     expect(() => loadWorkerConfig({})).toThrow(/META_GRAPH_VERSION[\s\S]*ENCRYPTION_KEY/);
     expect(() => loadWorkerConfig({ ...env, META_GRAPH_VERSION: "24" })).toThrow(/v24\.0/);

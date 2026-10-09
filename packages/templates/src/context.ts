@@ -133,14 +133,17 @@ export interface NowContext {
   calendar: CalendarDay[];
 }
 
-/** `now` must already be in the business timezone. */
-export function buildNowContext(now: DateTime): NowContext {
+/**
+ * `now` must already be in the business timezone. `openHolidays`: keys of the public
+ * holidays the business opens on (spec review C2); the calendar marks the others closed.
+ */
+export function buildNowContext(now: DateTime, openHolidays: readonly string[] = []): NowContext {
   return {
     iso: now.toISO() ?? "",
     date: now.toISODate() ?? "",
     time: formatTime(now.hour, now.minute),
     long: formatNowLong(now),
-    calendar: buildCalendar(now),
+    calendar: buildCalendar(now, { openHolidays }),
   };
 }
 

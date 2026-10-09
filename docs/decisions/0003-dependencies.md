@@ -28,6 +28,8 @@ Spec §4 packages in use:
 - M2: `fastify`, `bullmq`.
 - M3: `@anthropic-ai/sdk` (`packages/llm`). The new scheduling, llm and core code reuses
   `luxon`, `zod` and `bullmq`. No non-spec packages were added.
+- M4: none. `@platform/automations` reuses `bullmq`, `ioredis` and `luxon`. Cron
+  expressions are matched by a small parser in the package rather than a cron library.
 
 | Package        | Scope   | Why                                                                                   | Milestone |
 | -------------- | ------- | ------------------------------------------------------------------------------------- | --------- |

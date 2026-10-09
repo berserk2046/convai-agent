@@ -211,6 +211,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@platform/automations':
+        specifier: workspace:*
+        version: link:../../packages/automations
       '@platform/channels':
         specifier: workspace:*
         version: link:../../packages/channels
@@ -229,6 +232,46 @@ importers:
       '@platform/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+
+  packages/automations:
+    dependencies:
+      '@platform/channels':
+        specifier: workspace:*
+        version: link:../channels
+      '@platform/core':
+        specifier: workspace:*
+        version: link:../core
+      '@platform/db':
+        specifier: workspace:*
+        version: link:../db
+      '@platform/scheduling':
+        specifier: workspace:*
+        version: link:../scheduling
+      '@platform/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@platform/templates':
+        specifier: workspace:*
+        version: link:../templates
+      bullmq:
+        specifier: ^6.3.11
+        version: 6.3.11(ioredis@5.11.1)(pg@8.23.1)
+      ioredis:
+        specifier: ^5.11.1
+        version: 5.11.1
+      luxon:
+        specifier: ^3.7.2
+        version: 3.7.2
+    devDependencies:
+      '@platform/llm':
+        specifier: workspace:*
+        version: link:../llm
+      '@types/luxon':
+        specifier: ^3.7.6
+        version: 3.7.6
+      drizzle-orm:
+        specifier: ^0.45.3
+        version: 0.45.3(@types/pg@8.23.1)(pg@8.23.1)
 
   packages/channels:
     dependencies:

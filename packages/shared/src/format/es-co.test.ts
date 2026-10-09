@@ -66,13 +66,16 @@ describe("buildCalendar", () => {
       date: "2026-10-05",
       label: "lunes 5 de octubre",
       relative: "hoy",
+      holiday: null,
     });
     expect(calendar.find((d) => d.relative === "mañana")?.date).toBe("2026-10-06");
     expect(calendar.find((d) => d.label.startsWith("jueves"))?.date).toBe("2026-10-08");
   });
 
   it("crosses month boundaries", () => {
-    const calendar = buildCalendar(DateTime.fromISO("2026-10-30T10:00:00", { zone: BOGOTA }), 4);
+    const calendar = buildCalendar(DateTime.fromISO("2026-10-30T10:00:00", { zone: BOGOTA }), {
+      days: 4,
+    });
     expect(calendar.map((d) => d.date)).toEqual([
       "2026-10-30",
       "2026-10-31",
@@ -85,8 +88,23 @@ describe("buildCalendar", () => {
     });
   });
 
+  it("marks public holidays, closed unless the business opens on them", () => {
+    const closed = buildCalendar(monday9am);
+    expect(closed.find((d) => d.date === "2026-10-12")?.holiday).toEqual({
+      name: "Día de la Diversidad Étnica y Cultural",
+      open: false,
+    });
+    expect(closed.filter((d) => d.holiday !== null)).toHaveLength(1);
+    const open = buildCalendar(monday9am, {
+      openHolidays: ["diversidad_etnica_y_cultural"],
+    });
+    expect(open.find((d) => d.date === "2026-10-12")?.holiday?.open).toBe(true);
+  });
+
   it("starts at the business's local day even late at night UTC", () => {
-    const calendar = buildCalendar(DateTime.fromISO("2026-10-06T03:00:00Z").setZone(BOGOTA), 1);
+    const calendar = buildCalendar(DateTime.fromISO("2026-10-06T03:00:00Z").setZone(BOGOTA), {
+      days: 1,
+    });
     expect(calendar[0]?.date).toBe("2026-10-05");
   });
 });

@@ -197,6 +197,15 @@ const BROKEN: BrokenCase[] = [
     message: /undefined variable: booking\.label/,
   },
   {
+    // The sample clock's calendar includes a public holiday, so holiday fields are checked.
+    name: "unknown holiday field in the calendar",
+    source: edit(["agent", "dynamic_context"], (s) =>
+      s.replace("d.holiday.name", "d.holiday.nombre"),
+    ),
+    path: "agent.dynamic_context",
+    message: /undefined variable: d\.holiday\.nombre/,
+  },
+  {
     name: "now in the cached system prompt",
     source: edit(["agent", "system_prompt"], (s) => `${s}\nHoy es {{ now.long }}`),
     path: "agent.system_prompt",
@@ -468,6 +477,21 @@ const BROKEN: BrokenCase[] = [
     message: /reserved/,
   },
 ];
+
+describe("warnings", () => {
+  it("start_agent as a rule's own action can never run", () => {
+    const report = validateTemplateSource(
+      mutate((d) => d.setIn(["automations", 0, "action"], { type: "start_agent", intent: "book" })),
+    );
+    expect(report.issues).toContainEqual(
+      expect.objectContaining({
+        severity: "warning",
+        path: "automations[0].action.type",
+        message: expect.stringContaining("only works in on_button"),
+      }),
+    );
+  });
+});
 
 describe("broken templates fail with precise paths", () => {
   it.each(BROKEN)("$name → $path", ({ source, path, message, options }) => {

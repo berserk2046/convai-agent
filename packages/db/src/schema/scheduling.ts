@@ -46,7 +46,10 @@ export const resources = pgTable(
   ],
 );
 
-/** Blocked time: holidays, vacations, maintenance. Null resource = the whole business. */
+/**
+ * Blocked time: vacations, maintenance. Null resource = the whole business. Public holidays
+ * are built in (ADR 0009), not closures.
+ */
 export const closures = pgTable(
   "closures",
   {

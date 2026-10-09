@@ -2,6 +2,7 @@ export { createDb, type Database, type DbHandle } from "./client.ts";
 export { connectionError, waitForPostgres } from "./connection.ts";
 export * from "./errors.ts";
 export { MIGRATIONS_FOLDER, runMigrations } from "./migrate.ts";
+export * from "./repositories/automations.ts";
 export * from "./repositories/businesses.ts";
 export * from "./repositories/templates.ts";
 export * from "./schema/index.ts";

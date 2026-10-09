@@ -24,7 +24,7 @@ import {
   getActiveChannel,
   updateChannelToken,
 } from "../repositories/channels.ts";
-import { createBusiness } from "../repositories/businesses.ts";
+import { activateBusiness, createBusiness } from "../repositories/businesses.ts";
 import { createResource, listActiveResources } from "../repositories/scheduling.ts";
 import {
   getTemplateVersion,
@@ -79,6 +79,13 @@ try {
       templateVersion: version,
       config: template.sample_config,
     }));
+
+  // Active, so automations run (spec §9). Activation records the Meta templates the
+  // business needs; nothing reaches Meta unless META_TEMPLATE_SUBMISSION=on.
+  if (business.status === "setup") {
+    await activateBusiness(db, business.id);
+    logger.info({ business_id: business.id }, "demo business activated");
+  }
 
   // Demo resources (chairs for odontologia), taken from the template's eval fixtures.
   for (const resource of template.eval_fixtures?.resources ?? []) {

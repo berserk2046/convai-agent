@@ -111,6 +111,8 @@ What the model passes in (prompts can refer to these names):
   - optional: `time_of_day` (`morning` < 12:00 ≤ `afternoon` < 18:00 ≤ `evening`),
     `party_size`, and `around_time` (`"HH:mm"`, for "¿puede ser a las 3?"). The result
     then says whether that exact time is free, plus the nearest alternatives.
+  - Public holidays the business doesn't open on never have slots. The result lists them
+    under `closed_holidays`.
 - `book`: `service_key`, `starts_at` (as returned by `check_availability`), `subject_name`,
   `for_self`, optional `party_size` and `notes`, `confirmed_by_customer`, `proposal_id`.
   - `for_self` is true when the person writing will attend. Only then does
@@ -169,7 +171,10 @@ booking rules. In automations it is the booking that fired the rule.
 - **`now.*`**: `iso`, `date` (ISO), `time` ("9:00 a. m."), `long` ("lunes 5 de octubre de
   2026, 9:00 a. m."), and `calendar`, the next 14 days as
   `{ date: "2026-10-08", label: "jueves 8 de octubre", relative: "hoy" | "mañana" | "pasado
-mañana" | null }`.
+mañana" | null, holiday }`. `holiday` is null on normal days. On a Colombian public
+  holiday it is `{ name: "Día de la Diversidad Étnica y Cultural", open }`; `open` is true
+  only when the business switched that holiday on (ADR 0009). Render it so the agent knows
+  the day is closed.
 - **`contact.*`**:
   - `name`: null until the person gives a name;
   - every `contact_fields` key (null when unset);
@@ -251,6 +256,37 @@ not_exists }`.
 - **`on_button.<payload>`:** actions for each quick-reply payload of the template the rule
   sends.
 - **`overridable`:** trigger params a business may change, e.g. `trigger.offset`.
+
+How rules run (ADR 0010):
+
+- **When:** the sweeper checks every minute, looking back 2 hours. `booking.created`,
+  `rescheduled` and `cancelled` fire as soon as the booking changes. A rule fires at most
+  once per subject and occurrence. For example, a reschedule makes a new reminder
+  occurrence, and the old one never fires.
+- **Never before the booking existed:** a `booking.starts_in` time that falls before the
+  booking was made (or moved) is skipped. A booking made 10 hours ahead gets no 24-hour
+  reminder.
+- **Always applied:** a contact who opted out, or never gave consent, gets nothing, and
+  their data rules don't run either. No condition is needed for this.
+- **Everything is checked at send time.** The booking must still start when the run
+  expected, and the conditions must hold. `quiet_hours` only applies to rules that list it:
+  between 20:00 and 08:00 (business time), the run waits until 08:00.
+- **`send_template`:**
+  - only goes out once Meta has approved the template;
+  - the template's MARKETING messages count against the business's monthly cap;
+  - a variable that stays empty skips the run.
+- **`send_text`:** only inside the 24-hour window, else skipped.
+- **`start_agent`:** only in `on_button`, where it hands the conversation to the agent with
+  the intent. As a rule's own action it can't run (the validator warns).
+- **Button replies:**
+  - The handlers run even during a handoff, but then only `update_booking`,
+    `update_contact` and `notify_staff` act; staff are told about the tap.
+  - Typing a button's text ("Confirmo") counts as tapping it, while that template is the
+    last message the business sent (within 72 hours).
+  - A tap on a message about a booking that moved or ended does nothing; the agent answers
+    instead.
+- **Outcomes:** every run ends as `sent` (the action was carried out), `skipped` with a
+  reason, or `failed`.
 
 ## `evals`
 

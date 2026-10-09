@@ -92,7 +92,10 @@ export async function loadTurn(deps: TurnDeps, batch: InboundBatch): Promise<Tur
   const context: Context = {
     business: businessContext,
     agent: agentSettings(template),
-    now: buildNowContext(DateTime.fromJSDate(now, { zone: business.timezone })),
+    now: buildNowContext(
+      DateTime.fromJSDate(now, { zone: business.timezone }),
+      business.holidays.open_holidays,
+    ),
     contact: buildContactContext(
       {
         name: contact.name,

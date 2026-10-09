@@ -8,7 +8,7 @@ import {
   searchCatalog,
   slotView,
 } from "./catalog.ts";
-import { durationOf, effectiveRules, searchSlots } from "./slots.ts";
+import { closedHolidays, durationOf, effectiveRules, searchSlots } from "./slots.ts";
 import { toolError, type AgentTool } from "./types.ts";
 
 const isoDate = z.iso
@@ -93,6 +93,7 @@ export const checkAvailability: AgentTool = {
     });
     const around = typeof input.around_time === "string" ? input.around_time : undefined;
     const offer = chooseSlots(candidates, rules.slotsToOffer, around);
+    const holidays = closedHolidays(ctx, String(input.date_from), String(input.date_to));
     const exact = offer.exact
       ? candidates.find((c) => c.day === offer.exact?.day && c.minute === offer.exact.minute)
       : undefined;
@@ -107,6 +108,15 @@ export const checkAvailability: AgentTool = {
                 available: offer.exact.available,
                 ...(exact ? slotView(exact.start, ctx.timezone) : {}),
               },
+            }
+          : {}),
+        ...(holidays.length > 0
+          ? {
+              closed_holidays: holidays.map((h) => ({
+                date: h.date,
+                name: h.name,
+                note: "Public holiday: the business is closed.",
+              })),
             }
           : {}),
         ...(offer.slots.length === 0

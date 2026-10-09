@@ -154,6 +154,10 @@ export const messages = pgTable(
   (t) => [
     unique("messages_business_idempotency_key").on(t.businessId, t.idempotencyKey),
     index("messages_conversation_created_idx").on(t.conversationId, t.createdAt),
+    // Monthly marketing counts (principle 10) read template messages per business.
+    index("messages_business_templates_idx")
+      .on(t.businessId, t.createdAt)
+      .where(sql`${t.type} = 'template'`),
     index("messages_unprocessed_inbound_idx")
       .on(t.conversationId)
       .where(sql`${t.direction} = 'inbound' and ${t.processedAt} is null`),

@@ -62,6 +62,12 @@ export function checkAutomations(ctx: CheckContext): void {
     });
 
     checkAction(ctx, automation.action, [...path, "action"], subject, usedTemplates);
+    if (automation.action.type === "start_agent") {
+      ctx.issues.warning(
+        [...path, "action", "type"],
+        "start_agent only works in on_button (the agent answers the customer's tap); as a rule's action it is always skipped",
+      );
+    }
     for (const [payload, actions] of Object.entries(automation.on_button ?? {})) {
       actions.forEach((a, k) => {
         checkAction(ctx, a, [...path, "on_button", payload, k], subject, usedTemplates);

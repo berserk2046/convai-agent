@@ -39,6 +39,8 @@ export interface AvailabilityInput {
   bookings: readonly Busy[];
   /** Closures and calendar busy blocks; nothing is added to these. */
   blocked: readonly Busy[];
+  /** Local dates ("2026-10-12") the whole business is closed: public holidays it doesn't open on. */
+  closedDates?: readonly string[];
   timeOfDay?: TimeOfDay | undefined;
   gridMin?: number;
 }
@@ -79,9 +81,12 @@ export function findCandidates(input: AvailabilityInput): Candidate[] {
   const lengthMs = (input.durationMin + input.bufferMin) * 60_000;
   const bufferMs = input.bufferMin * 60_000;
 
+  const closed = new Set(input.closedDates ?? []);
   const candidates: Candidate[] = [];
   let day = window.from;
   for (let i = 0; day <= window.to && i < MAX_DAYS_SCANNED; i += 1, day = day.plus({ days: 1 })) {
+    const dayKey = day.toISODate() ?? "";
+    if (closed.has(dayKey)) continue;
     const key = WEEKDAY_KEYS[day.weekday - 1] as WeekdayKey;
     const byStart = new Map<number, string[]>();
     for (const resource of input.resources) {
@@ -117,7 +122,6 @@ export function findCandidates(input: AvailabilityInput): Candidate[] {
         }
       }
     }
-    const dayKey = day.toISODate() ?? "";
     for (const minute of [...byStart.keys()].sort((a, b) => a - b)) {
       candidates.push({
         start: day.plus({ minutes: minute }).toJSDate(),
