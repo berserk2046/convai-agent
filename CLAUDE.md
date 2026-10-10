@@ -9,6 +9,25 @@ package, not code.
 - Decisions (ADRs): `docs/decisions/`.
 - Open questions and risks in the spec: `docs/spec-review.md`.
 
+## Status
+
+Update this section at the end of each milestone.
+
+- **Done and approved:** M0–M5, all on `main`. M5 is the admin app: auth and roles, every
+  §12 screen except the playground, the instant inbox (ADR 0013), WhatsApp cost recording
+  (ADR 0012) and display labels in templates (ADR 0014).
+- **Next:** M6, evals and the playground (spec §15). Start it only when the owner asks.
+- **Waiting on the owner:**
+  - Live checks on Meta's test number and with a real Anthropic key. They are blocked until
+    the owner's Meta business account is sorted out and a key exists. The steps are in
+    `docs/whatsapp-test-number.md`.
+  - Submitting the message templates to Meta (`META_TEMPLATE_SUBMISSION`). Ask again once
+    the Meta account works.
+  - A review of how the admin looks. Start from `docs/admin-ui.md`.
+- **Carry into M7:** check that Caddy streams `/inbox/events` unbuffered (ADR 0013).
+- **Local setup after pulling:** run `pnpm db:migrate`. The dental template is at 1.1.0; a
+  local business on 1.0.0 moves with the owner's upgrade screen.
+
 ## How to work
 
 - Work milestone by milestone (spec §15, M0 → M9). At the end of each milestone:
@@ -90,16 +109,23 @@ pnpm db:new <name>          # empty custom SQL migration (constraints, RLS)
 pnpm template validate <path> [--previous <path>]   # validate a vertical template
 pnpm dev:api / pnpm dev:worker   # run the webhook API and the worker (watch mode)
 pnpm dev:setup                   # local demo business + Meta test number (docs/whatsapp-test-number.md)
+pnpm dev:admin                   # admin app on :3001 (loads the root .env)
+pnpm admin:create-owner          # platform owner from OWNER_EMAIL / OWNER_NAME / OWNER_PASSWORD
+pnpm test:e2e                    # build the admin + Playwright smoke test (fake Graph, scripted LLM)
 ```
 
 Template authoring rules, variables and filters: `docs/templates.md`. Tenant-scoped DB work
-always goes through `withTenant()` (`docs/decisions/0005-tenant-isolation-rls.md`).
+always goes through `withTenant()` (`docs/decisions/0005-tenant-isolation-rls.md`). Admin
+screens call `@platform/services`; each page and server action checks the session itself
+(`docs/decisions/0011-admin-and-auth.md`); where to change its look: `docs/admin-ui.md`.
+Next.js 16 docs ship in `apps/admin/node_modules/next/dist/docs/`: read them before
+changing admin code.
 
 ## Layout
 
 ```
 apps/        api (Fastify webhooks), worker (BullMQ), admin (Next.js)
-packages/    core, templates, automations, scheduling, channels, llm, db, evals, shared
+packages/    core, templates, automations, scheduling, channels, llm, db, evals, shared, services
 templates/   vertical template packages (YAML)
 infra/       production compose, Caddy, deploy scripts (M7)
 docs/        architecture, decisions, runbook

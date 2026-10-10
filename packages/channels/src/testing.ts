@@ -51,12 +51,25 @@ export interface FakeGraph {
   close(): Promise<void>;
 }
 
-export async function startFakeGraph(): Promise<FakeGraph> {
+/** Where the recorded requests can be read over HTTP (for a fake running in another process). */
+export const FAKE_GRAPH_REQUESTS_PATH = "/__requests";
+
+/**
+ * A stand-in for Meta's Graph API that records every request and answers like the
+ * messages endpoint. `port` 0 picks a free one; end-to-end tests use a fixed port and read
+ * the recorded requests from FAKE_GRAPH_REQUESTS_PATH.
+ */
+export async function startFakeGraph(options: { port?: number } = {}): Promise<FakeGraph> {
   const requests: RecordedRequest[] = [];
   const queued: FakeResponse[] = [];
   let counter = 0;
 
   const server = createServer((req, res) => {
+    if (req.method === "GET" && req.url === FAKE_GRAPH_REQUESTS_PATH) {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(requests));
+      return;
+    }
     void readBody(req).then((raw) => {
       const body = raw === "" ? {} : (JSON.parse(raw) as Record<string, unknown>);
       requests.push({
@@ -80,7 +93,7 @@ export async function startFakeGraph(): Promise<FakeGraph> {
       res.end(JSON.stringify(response.body));
     });
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve) => server.listen(options.port ?? 0, "127.0.0.1", resolve));
   const { port } = server.address() as AddressInfo;
 
   return {

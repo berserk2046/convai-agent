@@ -60,6 +60,14 @@ export function checkTools(ctx: CheckContext): void {
         );
       }
     }
+    if (isObject(handoff.labels)) {
+      for (const key of Object.keys(handoff.labels).filter((k) => !reasons.includes(k))) {
+        ctx.issues.error(
+          ["agent", "tools", "handoff", "labels", key],
+          `"${key}" is not one of agent.tools.handoff.reasons`,
+        );
+      }
+    }
   }
 
   const writable = agent.tools.update_contact?.writable_fields;

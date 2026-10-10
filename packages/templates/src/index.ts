@@ -20,6 +20,7 @@ export type { CompiledSchema, ValidationResult } from "./json-schema/config-sche
 export {
   PLATFORM_TYPES,
   PLATFORM_TYPE_KEYWORD,
+  isObject,
   type JsonSchema,
 } from "./json-schema/platform-types.ts";
 export { DEFAULT_TIMEZONE, TemplateRenderer, createLiquid } from "./liquid.ts";

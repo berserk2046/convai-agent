@@ -2,7 +2,11 @@ import { eq, sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { BusinessNotFoundError } from "./errors.ts";
 import { createBusiness, getBusiness, updateBusinessConfig } from "./repositories/businesses.ts";
-import { ODONTOLOGIA_SAMPLE_CONFIG, publishOdontologia } from "./repositories/fixtures.ts";
+import {
+  ODONTOLOGIA_SAMPLE_CONFIG,
+  ODONTOLOGIA_VERSION,
+  publishOdontologia,
+} from "./repositories/fixtures.ts";
 import { businesses, verticalTemplates, type BusinessRow } from "./schema/index.ts";
 import { withTenant } from "./tenant.ts";
 import { createTestDatabase, type TestDatabase } from "./testing.ts";
@@ -17,7 +21,7 @@ const config = ODONTOLOGIA_SAMPLE_CONFIG;
 beforeAll(async () => {
   testDb = await createTestDatabase();
   await publishOdontologia(testDb.db);
-  const pinned = { templateSlug: "odontologia", templateVersion: "1.0.0", config };
+  const pinned = { templateSlug: "odontologia", templateVersion: ODONTOLOGIA_VERSION, config };
   a = await createBusiness(testDb.db, { name: "Clínica A", ...pinned });
   b = await createBusiness(testDb.db, { name: "Clínica B", ...pinned });
 });
@@ -60,7 +64,7 @@ describe("withTenant", () => {
       withTenant(testDb.db, a.id, (tx) =>
         tx
           .insert(businesses)
-          .values({ name: "X", templateSlug: "odontologia", templateVersion: "1.0.0" }),
+          .values({ name: "X", templateSlug: "odontologia", templateVersion: ODONTOLOGIA_VERSION }),
       ),
     ).rejects.toMatchObject({ cause: { code: "42501" } });
     await expect(

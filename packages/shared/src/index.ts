@@ -1,6 +1,7 @@
 export {
   ConfigError,
   DEV_DEFAULTS,
+  adminEnv,
   agentEnv,
   apiEnv,
   automationsEnv,
@@ -40,3 +41,4 @@ export {
 } from "./holidays-co.ts";
 export { REDACTED_PATHS, alert, createLogger, type Logger, type LoggerOptions } from "./logger.ts";
 export { createSecretBox, type SecretBox } from "./secret-box.ts";
+export { WA_RATES_EFFECTIVE_FROM, waCharge, type WaCharge, type WaChargeKind } from "./wa-rates.ts";

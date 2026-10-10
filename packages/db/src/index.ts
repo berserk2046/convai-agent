@@ -1,7 +1,8 @@
+export { INBOX_CHANNEL, createChangeFeed, type ChangeFeed } from "./changes.ts";
 export { createDb, type Database, type DbHandle } from "./client.ts";
 export { connectionError, waitForPostgres } from "./connection.ts";
 export * from "./errors.ts";
-export { MIGRATIONS_FOLDER, runMigrations } from "./migrate.ts";
+export * from "./repositories/auth.ts";
 export * from "./repositories/automations.ts";
 export * from "./repositories/businesses.ts";
 export * from "./repositories/templates.ts";
@@ -10,6 +11,8 @@ export { isUuid, withTenant, type Executor, type Transaction } from "./tenant.ts
 export { describeDatabaseUrl, withDatabaseName } from "./url.ts";
 export * from "./repositories/channels.ts";
 export * from "./repositories/conversations.ts";
+export * from "./repositories/inbox.ts";
 export * from "./repositories/messages.ts";
+export * from "./repositories/reports.ts";
 export * from "./repositories/agent.ts";
 export * from "./repositories/scheduling.ts";

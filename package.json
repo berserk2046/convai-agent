@@ -4,12 +4,13 @@
   "type": "module",
   "packageManager": "pnpm@12.9.1",
   "engines": {
-    "node": ">=24"
+    "node": ">=24.7"
   },
   "scripts": {
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:e2e": "pnpm --filter @platform/admin test:e2e",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "db:migrate": "pnpm --filter @platform/db migrate",
@@ -18,7 +19,9 @@
     "template": "node packages/templates/src/cli/main.ts",
     "dev:setup": "pnpm --filter @platform/db dev-setup",
     "dev:api": "pnpm --filter @platform/api dev",
-    "dev:worker": "pnpm --filter @platform/worker dev"
+    "dev:worker": "pnpm --filter @platform/worker dev",
+    "admin:create-owner": "pnpm --filter @platform/services create-owner",
+    "dev:admin": "pnpm --filter @platform/admin dev"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

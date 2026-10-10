@@ -1,6 +1,7 @@
 import { isHolidayKey } from "@platform/shared";
 import {
   DEFAULT_TIMEZONE,
+  compareSemver,
   formatPath,
   metaComponents,
   metaTemplateName,
@@ -8,7 +9,7 @@ import {
   validateBusinessConfig,
   type Template,
 } from "@platform/templates";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { IANAZone } from "luxon";
 import { z } from "zod";
 import { BusinessNotFoundError, InvalidInputError, TemplateNotPublishedError } from "../errors.ts";
@@ -122,6 +123,42 @@ export async function activateBusiness(db: Executor, businessId: string): Promis
   return row;
 }
 
+/**
+ * Pins a business to a newer published version of its template (spec §10 upgrade): the
+ * config (the current one, or `config` when fields need input) is validated against the
+ * new version, new automation rules are added, and an active business gets rows for any
+ * new or changed Meta templates (the sync job submits them).
+ */
+export async function upgradeBusinessTemplate(
+  db: Executor,
+  businessId: string,
+  version: string,
+  config?: unknown,
+): Promise<BusinessRow> {
+  const business = await getBusiness(db, businessId);
+  if (!business) throw new BusinessNotFoundError();
+  const target = await getTemplateVersion(db, business.templateSlug, version);
+  if (target?.status !== "published") {
+    throw new TemplateNotPublishedError(business.templateSlug, version);
+  }
+  if (compareSemver(version, business.templateVersion) <= 0) {
+    throw new InvalidInputError("upgrade", [
+      { path: "version", message: `must be newer than ${business.templateVersion}` },
+    ]);
+  }
+  const next = config ?? business.config;
+  const validated = next === null ? null : validatedConfig(target, next);
+  const [row] = await db
+    .update(businesses)
+    .set({ templateVersion: version, config: validated, updatedAt: sql`now()` })
+    .where(eq(businesses.id, businessId))
+    .returning();
+  if (!row) throw new BusinessNotFoundError();
+  await seedAutomations(db, businessId, target.manifest.automations);
+  if (row.status === "active") await syncWaTemplates(db, businessId, target.manifest);
+  return row;
+}
+
 /** One row per wa_templates entry, named `<key>_v<major>` (spec §9), with Meta's components. */
 export async function syncWaTemplates(
   db: Executor,
@@ -170,6 +207,64 @@ export async function updateBusinessConfig(
     .where(eq(businesses.id, businessId))
     .returning();
   if (!row) throw new BusinessNotFoundError();
+  return row;
+}
+
+/** Platform-owner settings: name, monthly caps, plan price. */
+export async function updateBusinessSettings(
+  db: Executor,
+  businessId: string,
+  input: { name?: string; limits?: BusinessLimits; planPriceUsd?: number | null },
+): Promise<BusinessRow> {
+  const issues: { path: string; message: string }[] = [];
+  const name = input.name?.trim();
+  if (name === "") issues.push({ path: "name", message: "must not be empty" });
+  const limits = input.limits === undefined ? null : limitsSchema.safeParse(input.limits);
+  if (limits && !limits.success) issues.push(...fieldIssues("limits", limits.error));
+  if (input.planPriceUsd != null && !(input.planPriceUsd >= 0)) {
+    issues.push({ path: "planPriceUsd", message: "must be zero or more" });
+  }
+  if (issues.length > 0) throw new InvalidInputError("business", issues);
+  const [row] = await db
+    .update(businesses)
+    .set({
+      ...(name === undefined ? {} : { name }),
+      ...(limits?.success ? { limits: limits.data } : {}),
+      ...(input.planPriceUsd === undefined
+        ? {}
+        : { planPriceUsd: input.planPriceUsd === null ? null : input.planPriceUsd.toFixed(2) }),
+      updatedAt: sql`now()`,
+    })
+    .where(eq(businesses.id, businessId))
+    .returning();
+  if (!row) throw new BusinessNotFoundError();
+  return row;
+}
+
+/** Pauses an active business (its agent and automations stop) or resumes it. */
+export async function setBusinessPaused(
+  db: Executor,
+  businessId: string,
+  paused: boolean,
+): Promise<BusinessRow> {
+  const [row] = await db
+    .update(businesses)
+    .set({ status: paused ? "paused" : "active", updatedAt: sql`now()` })
+    .where(
+      and(
+        eq(businesses.id, businessId),
+        sql`${businesses.status} = ${paused ? "active" : "paused"}`,
+      ),
+    )
+    .returning();
+  if (!row) {
+    throw new InvalidInputError("business", [
+      {
+        path: "status",
+        message: paused ? "only an active business can be paused" : "is not paused",
+      },
+    ]);
+  }
   return row;
 }
 

@@ -120,6 +120,17 @@ export async function insertOutboundMessage(
   return row ?? null;
 }
 
+export async function getOutboundByWaMessageId(
+  db: Executor,
+  waMessageId: string,
+): Promise<MessageRow | null> {
+  const [row] = await db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.waMessageId, waMessageId), eq(messages.direction, "outbound")));
+  return row ?? null;
+}
+
 /** The outgoing message created with this idempotency key, if any. */
 export async function getMessageByIdempotencyKey(
   db: Executor,

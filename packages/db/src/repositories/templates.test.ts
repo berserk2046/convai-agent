@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TemplateInvalidError, TemplateVersionLockedError } from "../errors.ts";
 import { createTestDatabase, type TestDatabase } from "../testing.ts";
-import { ODONTOLOGIA_SOURCE } from "./fixtures.ts";
+import {
+  ODONTOLOGIA_SOURCE,
+  ODONTOLOGIA_VERSION,
+  laterVersion,
+  odontologiaAt,
+} from "./fixtures.ts";
 import { listTemplateVersions, saveTemplateDraft, setTemplateStatus } from "./templates.ts";
 
 let testDb: TestDatabase;
@@ -14,8 +19,7 @@ afterAll(async () => {
   await testDb.drop();
 });
 
-const withVersion = (version: string, source = ODONTOLOGIA_SOURCE) =>
-  source.replace(/^ {2}version: 1\.0\.0$/m, `  version: ${version}`);
+const NEXT_MINOR = laterVersion("minor");
 
 describe("template uploads", () => {
   it("stores a valid upload as a draft with the parsed template", async () => {
@@ -25,7 +29,7 @@ describe("template uploads", () => {
     expect(warnings).toEqual([]);
     expect(row).toMatchObject({
       slug: "odontologia",
-      version: "1.0.0",
+      version: ODONTOLOGIA_VERSION,
       status: "draft",
       publishedAt: null,
     });
@@ -52,14 +56,14 @@ describe("template uploads", () => {
   });
 
   it("locks a version once published", async () => {
-    await setTemplateStatus(testDb.db, "odontologia", "1.0.0", "published");
+    await setTemplateStatus(testDb.db, "odontologia", ODONTOLOGIA_VERSION, "published");
     await expect(
       saveTemplateDraft(testDb.db, { sourceYaml: ODONTOLOGIA_SOURCE }),
     ).rejects.toBeInstanceOf(TemplateVersionLockedError);
   });
 
   it("checks upgrade rules against the latest published version", async () => {
-    const minorWithNewCategory = withVersion("1.1.0").replace(
+    const minorWithNewCategory = odontologiaAt(NEXT_MINOR).replace(
       "  - key: recordatorio_cita\n    category: UTILITY",
       "  - key: recordatorio_cita\n    category: MARKETING",
     );
@@ -72,16 +76,16 @@ describe("template uploads", () => {
         message: expect.stringMatching(/bump the major/),
       }),
     );
-    const { row } = await saveTemplateDraft(testDb.db, { sourceYaml: withVersion("1.1.0") });
+    const { row } = await saveTemplateDraft(testDb.db, { sourceYaml: odontologiaAt(NEXT_MINOR) });
     expect(row.status).toBe("draft");
   });
 
   it("only allows draft → published → deprecated", async () => {
     await expect(
-      setTemplateStatus(testDb.db, "odontologia", "1.1.0", "deprecated"),
+      setTemplateStatus(testDb.db, "odontologia", NEXT_MINOR, "deprecated"),
     ).rejects.toThrow(/is not published/);
     await expect(
-      setTemplateStatus(testDb.db, "odontologia", "1.0.0", "deprecated"),
+      setTemplateStatus(testDb.db, "odontologia", ODONTOLOGIA_VERSION, "deprecated"),
     ).resolves.toMatchObject({
       status: "deprecated",
     });

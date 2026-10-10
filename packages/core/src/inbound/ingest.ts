@@ -4,6 +4,8 @@ import {
   applyWaTemplateUpdate,
   ensureConversation,
   findBusinessIdsByWaba,
+  getOutboundByWaMessageId,
+  recordMessageCharge,
   findActiveChannelByPhoneNumberId,
   insertInboundMessage,
   isDeliveryStatus,
@@ -12,8 +14,9 @@ import {
   upsertContact,
   withTenant,
   type Database,
+  type Transaction,
 } from "@platform/db";
-import { alert, type Logger } from "@platform/shared";
+import { alert, waCharge, type Logger } from "@platform/shared";
 import type { InboundJobData } from "./queue.ts";
 
 /**
@@ -141,15 +144,17 @@ async function storeStatus(
     return;
   }
   const error = status.errors[0] ? { kind: "delivery", ...status.errors[0] } : null;
-  const updated = await withTenant(deps.db, businessId, (tx) =>
-    applyStatusUpdate(tx, {
+  const updated = await withTenant(deps.db, businessId, async (tx) => {
+    const row = await applyStatusUpdate(tx, {
       waMessageId: status.waMessageId,
       status: status.status as Parameters<typeof applyStatusUpdate>[1]["status"],
       at: status.timestamp,
       pricing: status.pricing ? { ...status.pricing } : null,
       error,
-    }),
-  );
+    });
+    await recordCharge(tx, businessId, status, row?.id ?? null);
+    return row;
+  });
   if (updated && status.status === "failed") {
     alert(
       deps.logger,
@@ -158,6 +163,35 @@ async function storeStatus(
       "WhatsApp could not deliver a message",
     );
   }
+}
+
+/** Meta charges a message once it's delivered (pricing docs), so the charge waits for that. */
+const CHARGED_STATUSES = new Set(["delivered", "read", "played"]);
+
+/** WhatsApp spend per message (ADR 0012), at Meta's list rate for the category it reports. */
+async function recordCharge(
+  tx: Transaction,
+  businessId: string,
+  status: StatusUpdate,
+  messageId: string | null,
+): Promise<void> {
+  if (!status.pricing || !CHARGED_STATUSES.has(status.status)) return;
+  const charge = waCharge(status.pricing, status.recipientId);
+  if (!charge) return;
+  // A late status (read before delivered) updates nothing but still identifies the message.
+  const id = messageId ?? (await getOutboundByWaMessageId(tx, status.waMessageId))?.id;
+  if (!id) return;
+  await recordMessageCharge(tx, {
+    businessId,
+    messageId: id,
+    kind: charge.kind,
+    costUsd: charge.usd,
+    details: {
+      category: status.pricing.category,
+      market: charge.market,
+      ...(charge.estimated ? { estimated: true } : {}),
+    },
+  });
 }
 
 /** Meta events that mean a template can't be sent (or is about to stop working). */

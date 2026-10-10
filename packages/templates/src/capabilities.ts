@@ -118,7 +118,11 @@ export const TOOLS = {
     requiresConsent: true,
   },
   handoff: {
-    params: z.strictObject({ reasons: z.array(slug).min(1) }),
+    params: z.strictObject({
+      reasons: z.array(slug).min(1),
+      /** What staff read for each reason in the admin; reasons without one show humanized. */
+      labels: z.record(z.string(), z.string().min(1)).optional(),
+    }),
     usesBookingRules: false,
     requiresConsent: false,
   },

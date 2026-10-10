@@ -7,7 +7,7 @@ import {
   processInboundBatch,
 } from "@platform/core";
 import { createCoreHarness, type CoreHarness } from "@platform/core/testing";
-import { ODONTOLOGIA_SOURCE, publishOdontologia } from "@platform/db/testing";
+import { laterVersion, odontologiaAt, publishOdontologia } from "@platform/db/testing";
 import {
   activateBusiness,
   applyWaTemplateUpdate,
@@ -75,11 +75,11 @@ export interface Harness {
 let counter = 0;
 
 /**
- * odontologia with extra rules appended (and their triggers declared), as version 1.1.0:
- * for triggers the real template doesn't use.
+ * odontologia with extra rules appended (and their triggers declared), as its next minor
+ * version: for triggers the real template doesn't use.
  */
 export function odontologiaWith(triggers: string[], rulesYaml: string): string {
-  const source = ODONTOLOGIA_SOURCE.replace(/^ {2}version: 1\.0\.0$/m, "  version: 1.1.0").replace(
+  const source = odontologiaAt(laterVersion("minor")).replace(
     "triggers: [booking.starts_in, booking.completed, contact.date_field]",
     `triggers: [booking.starts_in, booking.completed, contact.date_field, ${triggers.join(", ")}]`,
   );

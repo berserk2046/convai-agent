@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { check, foreignKey, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  check,
+  foreignKey,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { verticalTemplates } from "./vertical-templates.ts";
 
 export const BUSINESS_STATUSES = ["setup", "active", "paused"] as const;
@@ -43,6 +52,8 @@ export const businesses = pgTable(
     limits: jsonb("limits").$type<BusinessLimits>().notNull().default({}),
     holidays: jsonb("holidays").$type<HolidaySettings>().notNull().default({}),
     agentOverrides: jsonb("agent_overrides").$type<AgentOverrides>().notNull().default({}),
+    /** What the business pays the platform each month (USD), for the owner's /usage view. */
+    planPriceUsd: numeric("plan_price_usd", { precision: 10, scale: 2 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

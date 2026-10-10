@@ -46,13 +46,46 @@ export function compileObjectSchema(
       })),
     };
   }
+  let validate: ValidateFunction;
   try {
-    return { compiled: { schema, validate: ajv.compile(schema) }, issues: [] };
+    validate = ajv.compile(schema);
   } catch (error) {
     // Strict-mode and keyword failures come as plain errors; recover a path from the text.
     const message = error instanceof Error ? error.message : String(error);
     return { compiled: null, issues: [locateCompileError(schema, message)] };
   }
+  const labelIssues = checkUiLabels(schema, []);
+  if (labelIssues.length > 0) return { compiled: null, issues: labelIssues };
+  return { compiled: { schema, validate }, issues: [] };
+}
+
+/** Keys holding data rather than subschemas: nothing to check inside them. */
+const DATA_KEYWORDS = new Set(["x-ui", "enum", "const", "default", "examples"]);
+
+/** `x-ui.labels` name the values of an `enum` on the same field, and only those values. */
+function checkUiLabels(node: unknown, path: DocPath): SchemaIssue[] {
+  if (Array.isArray(node)) return node.flatMap((item, i) => checkUiLabels(item, [...path, i]));
+  if (!isObject(node)) return [];
+  const issues: SchemaIssue[] = [];
+  const labels = isObject(node["x-ui"]) ? node["x-ui"].labels : undefined;
+  if (isObject(labels)) {
+    const at: DocPath = [...path, "x-ui", "labels"];
+    if (!Array.isArray(node.enum)) {
+      issues.push({ path: at, message: 'is only for fields with "enum": it names their values' });
+    } else {
+      const values = node.enum.map(String);
+      for (const key of Object.keys(labels).filter((k) => !values.includes(k))) {
+        issues.push({
+          path: [...at, key],
+          message: `"${key}" is not one of the field's values (${values.join(", ")})`,
+        });
+      }
+    }
+  }
+  for (const [key, value] of Object.entries(node)) {
+    if (!DATA_KEYWORDS.has(key)) issues.push(...checkUiLabels(value, [...path, key]));
+  }
+  return issues;
 }
 
 function locateCompileError(schema: unknown, message: string): SchemaIssue {

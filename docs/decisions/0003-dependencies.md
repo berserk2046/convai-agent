@@ -30,11 +30,20 @@ Spec §4 packages in use:
   `luxon`, `zod` and `bullmq`. No non-spec packages were added.
 - M4: none. `@platform/automations` reuses `bullmq`, `ioredis` and `luxon`. Cron
   expressions are matched by a small parser in the package rather than a cron library.
+- M5 (`apps/admin`, ADR 0011): `next` 16.3.8 with `react`/`react-dom` 19.3, `tailwindcss`
+  4.3, `@rjsf/core` 6.11, and `@playwright/test` 1.64 for the smoke test.
+  `@platform/services` reuses `yaml` for template diffs.
 
 | Package        | Scope   | Why                                                                                   | Milestone |
 | -------------- | ------- | ------------------------------------------------------------------------------------- | --------- |
 | `@types/luxon` | dev     | Type definitions for Luxon (it ships none)                                            | M1        |
 | `ioredis`      | runtime | BullMQ 6 made its Redis client an optional peer; we use the one BullMQ is tested with | M2        |
+
+| Package                               | Scope   | Why                                                                  | Milestone |
+| ------------------------------------- | ------- | -------------------------------------------------------------------- | --------- |
+| `@rjsf/utils`, `@rjsf/validator-ajv8` | runtime | Required companions of `@rjsf/core`: its types and its Ajv validator | M5        |
+| `@tailwindcss/postcss`                | dev     | Tailwind 4's PostCSS plugin, how Next.js loads Tailwind              | M5        |
+| `@types/react`, `@types/react-dom`    | dev     | React type definitions (React ships none)                            | M5        |
 
 ## Deliberately not added
 
@@ -48,5 +57,12 @@ Spec §4 packages in use:
 - **`libsodium-wrappers`:** `node:crypto` AES-256-GCM instead (ADR 0006).
 - **`axios`/`undici` wrappers, `@fastify/*` plugins, `fastify-raw-body`:** Node's `fetch`
   and a Fastify content-type parser cover the need.
+- **shadcn/ui's CLI, Radix, `clsx`, `tailwind-merge`, `lucide-react`:** the admin's few
+  components are vendored with native elements and a one-line `cn` (ADR 0011).
+- **`argon2`/`bcrypt` (native add-ons):** Node ≥ 24.7 has `crypto.argon2` (ADR 0011).
+- **`next-auth`, `iron-session`, `jose`:** sessions are database rows with an HMAC'd random
+  token; there is nothing to sign or encrypt client-side.
+- **`eslint-config-next`, `eslint-plugin-react-hooks`:** the shared typescript-eslint config
+  covers the admin; Next 16 no longer runs ESLint itself.
 - **Native build scripts:** `esbuild` and `msgpackr-extract` are denied in
   `pnpm-workspace.yaml`; both work without them.

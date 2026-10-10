@@ -67,6 +67,12 @@ export const automationsEnv = z.object({
   MARKETING_MSGS_MONTH: z.coerce.number().int().min(0).default(500),
 });
 
+/** The admin app (spec §12). */
+export const adminEnv = z.object({
+  /** Key for session token HMACs: 32+ random characters. */
+  SESSION_SECRET: z.string().min(32, "must be at least 32 characters"),
+});
+
 export const apiEnv = z.object({
   HOST: z.string().default("127.0.0.1"),
   PORT: z.coerce.number().int().min(1).max(65_535).default(3_000),

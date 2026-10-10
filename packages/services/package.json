@@ -1,0 +1,31 @@
+{
+  "name": "@platform/services",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p .",
+    "test": "vitest run",
+    "create-owner": "node --env-file-if-exists=../../.env src/cli/create-owner.ts"
+  },
+  "dependencies": {
+    "@platform/automations": "workspace:*",
+    "@platform/channels": "workspace:*",
+    "@platform/core": "workspace:*",
+    "@platform/db": "workspace:*",
+    "@platform/shared": "workspace:*",
+    "@platform/templates": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "luxon": "^3.7.2",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@platform/llm": "workspace:*",
+    "@types/luxon": "^3.7.6"
+  }
+}

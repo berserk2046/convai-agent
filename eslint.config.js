@@ -30,7 +30,7 @@ export default defineConfig(
     rules: { "@typescript-eslint/no-unsafe-assignment": "off" },
   },
   {
-    files: ["**/*.js"],
+    files: ["**/*.js", "**/*.mjs"],
     extends: [tseslint.configs.disableTypeChecked],
   },
 );

@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createWhatsAppClient, type WhatsAppClient } from "./client.ts";
 import { WhatsAppSendError } from "./errors.ts";
-import { startFakeGraph, type FakeGraph } from "./testing.ts";
+import { FAKE_GRAPH_REQUESTS_PATH, startFakeGraph, type FakeGraph } from "./testing.ts";
 
 let graph: FakeGraph;
 let client: WhatsAppClient;
@@ -165,5 +165,19 @@ describe("errors", () => {
     const slow = createWhatsAppClient({ baseUrl: graph.url, graphVersion: "v24.0", timeoutMs: 1 });
     graph.respondNext({ status: 200, body: {} });
     expect((await failure(slow.sendText(sender, { to: "1", body: "x" }))).kind).toBe("unknown");
+  });
+});
+
+describe("the fake Graph API (end-to-end tests)", () => {
+  it("lists what it recorded over HTTP, for a test in another process", async () => {
+    const fake = await startFakeGraph();
+    const own = createWhatsAppClient({ baseUrl: fake.url, graphVersion: "v24.0" });
+    await own.sendText(sender, { to: "573001112233", body: "hola" });
+    const response = await fetch(`${fake.url}${FAKE_GRAPH_REQUESTS_PATH}`);
+    const listed = (await response.json()) as { body: { to?: string } }[];
+    expect(listed.map((r) => r.body.to)).toEqual(["573001112233"]);
+    // Reading the list is not itself a Graph request.
+    expect(fake.requests).toHaveLength(1);
+    await fake.close();
   });
 });

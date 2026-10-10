@@ -9,12 +9,18 @@ import {
   updateBusinessConfig,
   updateBusinessHolidays,
 } from "./businesses.ts";
-import { ODONTOLOGIA_SAMPLE_CONFIG, ODONTOLOGIA_SOURCE, publishOdontologia } from "./fixtures.ts";
+import {
+  ODONTOLOGIA_SAMPLE_CONFIG,
+  ODONTOLOGIA_VERSION,
+  laterVersion,
+  odontologiaAt,
+  publishOdontologia,
+} from "./fixtures.ts";
 import { saveTemplateDraft } from "./templates.ts";
 
 let testDb: TestDatabase;
 const sampleConfig = ODONTOLOGIA_SAMPLE_CONFIG;
-const pinned = { templateSlug: "odontologia", templateVersion: "1.0.0" };
+const pinned = { templateSlug: "odontologia", templateVersion: ODONTOLOGIA_VERSION };
 
 beforeAll(async () => {
   testDb = await createTestDatabase();
@@ -55,14 +61,13 @@ describe("createBusiness", () => {
   });
 
   it("refuses drafts and unknown versions", async () => {
-    await saveTemplateDraft(testDb.db, {
-      sourceYaml: ODONTOLOGIA_SOURCE.replace(/^ {2}version: 1\.0\.0$/m, "  version: 1.1.0"),
-    });
+    const draft = laterVersion("minor");
+    await saveTemplateDraft(testDb.db, { sourceYaml: odontologiaAt(draft) });
     await expect(
       createBusiness(testDb.db, {
         name: "X",
         templateSlug: "odontologia",
-        templateVersion: "1.1.0",
+        templateVersion: draft,
       }),
     ).rejects.toBeInstanceOf(TemplateNotPublishedError);
     await expect(

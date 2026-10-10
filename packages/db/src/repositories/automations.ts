@@ -187,6 +187,23 @@ export async function hasSentRun(
   return row !== undefined;
 }
 
+/** Runs per rule and status since `from` (the /automations screen). */
+export async function countRunsSince(
+  db: Executor,
+  businessId: string,
+  from: Date,
+): Promise<{ automationId: string; status: RunStatus; count: number }[]> {
+  return db
+    .select({
+      automationId: automationRuns.automationId,
+      status: automationRuns.status,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(automationRuns)
+    .where(and(eq(automationRuns.businessId, businessId), gt(automationRuns.createdAt, from)))
+    .groupBy(automationRuns.automationId, automationRuns.status);
+}
+
 export async function listRunsForSubject(
   db: Executor,
   subjectId: string,
@@ -368,7 +385,7 @@ export async function getBooking(db: Executor, bookingId: string) {
 export async function confirmBooking(db: Executor, bookingId: string): Promise<boolean> {
   const rows = await db
     .update(bookings)
-    .set({ status: "confirmed", updatedAt: sql`now()` })
+    .set({ status: "confirmed", confirmedAt: sql`now()`, updatedAt: sql`now()` })
     .where(and(eq(bookings.id, bookingId), eq(bookings.status, "pending")))
     .returning({ id: bookings.id });
   return rows.length === 1;

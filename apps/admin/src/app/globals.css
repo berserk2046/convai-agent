@@ -1,0 +1,107 @@
+@import "tailwindcss";
+
+/*
+ * The admin's look, in one place (guide: docs/admin-ui.md).
+ *
+ * 1. Tokens: colors, corner radius and font. Utilities come from the names, so
+ *    --color-primary gives bg-primary, text-primary, border-primary… Change a value here
+ *    and every screen follows. Screens use these names, never raw colors like bg-red-500.
+ * 2. Page background and text.
+ * 3. The generated setup form (RJSF).
+ *
+ * Shapes and sizes of buttons, cards, badges, tables and fields live in
+ * src/components/ui.tsx; the header and page width in src/components/shell.tsx.
+ */
+@theme {
+  /* Surfaces and text */
+  --color-background: oklch(1 0 0); /* inputs, header */
+  --color-foreground: oklch(0.145 0 0); /* body text */
+  --color-card: oklch(1 0 0);
+  --color-muted: oklch(0.97 0 0); /* quiet fills: active nav item, table headers */
+  --color-muted-foreground: oklch(0.52 0 0); /* secondary text */
+  --color-border: oklch(0.922 0 0);
+  --color-input: oklch(0.88 0 0); /* field borders */
+  --color-ring: oklch(0.55 0.08 190); /* keyboard focus outline */
+
+  /* Brand and actions */
+  --color-primary: oklch(0.32 0.06 190); /* main buttons, unread badge */
+  --color-primary-foreground: oklch(0.985 0 0);
+  --color-secondary: oklch(0.95 0.01 190);
+  --color-secondary-foreground: oklch(0.25 0.04 190);
+
+  /* Status: alerts, badges, booking chips, the template diff */
+  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive-foreground: oklch(0.985 0 0);
+  --color-warning: oklch(0.76 0.15 75);
+  --color-success: oklch(0.6 0.13 155);
+
+  /* Inbox message bubbles */
+  --color-message-in: oklch(0.97 0 0); /* from the customer */
+  --color-message-out: oklch(0.94 0.02 155); /* from the business: assistant or staff */
+
+  /* Shape and type */
+  --radius-md: 0.5rem;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* 2. Page background and text */
+body {
+  @apply bg-muted/40 text-foreground antialiased;
+}
+
+/*
+ * 3. The generated setup form (RJSF default templates). RJSF writes Bootstrap-style class
+ * names; these rules give them the same look as the rest of the admin.
+ */
+.rjsf fieldset {
+  @apply grid gap-4;
+}
+.rjsf .form-group {
+  @apply grid gap-1.5;
+}
+.rjsf label.control-label {
+  @apply text-sm font-medium;
+}
+.rjsf .form-control,
+.rjsf select,
+.rjsf textarea {
+  @apply w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-ring;
+}
+.rjsf textarea {
+  @apply min-h-20;
+}
+.rjsf .checkbox label {
+  @apply flex items-center gap-2 text-sm;
+}
+.rjsf .help-block,
+.rjsf .field-description {
+  @apply text-xs text-muted-foreground;
+}
+.rjsf .error-detail {
+  @apply text-xs text-destructive;
+}
+.rjsf .array-item-list {
+  @apply grid gap-3;
+}
+.rjsf .array-item {
+  @apply flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3;
+}
+.rjsf .array-item > div:first-child {
+  @apply flex-1;
+}
+.rjsf .array-item .array-item-toolbox .btn-group {
+  @apply flex gap-1;
+}
+.rjsf legend {
+  @apply text-sm font-semibold;
+}
+.rjsf .panel.errors {
+  @apply hidden;
+}
+/* "table" layout (x-ui widget table): each item's fields side by side. */
+.rjsf .layout-table .array-item fieldset {
+  @apply grid-cols-2 md:grid-cols-4;
+}
+.rjsf .layout-table .array-item legend {
+  @apply hidden;
+}

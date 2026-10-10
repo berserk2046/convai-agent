@@ -15,11 +15,16 @@ export interface TestDatabase extends DbHandle {
 
 /**
  * Creates a fresh, fully migrated database on the DATABASE_URL server. Use one per test
- * file so files can run in parallel without sharing state.
+ * file so files can run in parallel without sharing state. A fixed `name` (end-to-end
+ * tests, whose web server needs to know it) replaces any database of that name.
  */
-export async function createTestDatabase(): Promise<TestDatabase> {
+export async function createTestDatabase(options: { name?: string } = {}): Promise<TestDatabase> {
   const { DATABASE_URL: serverUrl } = parseEnv(databaseEnv);
-  const name = `test_${randomUUID().replaceAll("-", "")}`;
+  const name = options.name ?? `test_${randomUUID().replaceAll("-", "")}`;
+  if (!/^(test|e2e)_[a-z0-9_]+$/.test(name)) {
+    throw new Error(`test database names start with test_ or e2e_, not "${name}"`);
+  }
+  if (options.name) await runOnServer(serverUrl, `DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
   await runOnServer(serverUrl, `CREATE DATABASE ${name}`);
 
   const url = withDatabaseName(serverUrl, name);
@@ -54,6 +59,9 @@ async function runOnServer(serverUrl: string, sql: string): Promise<void> {
 export {
   ODONTOLOGIA_SAMPLE_CONFIG,
   ODONTOLOGIA_SOURCE,
+  ODONTOLOGIA_VERSION,
   createTestBusiness,
+  laterVersion,
+  odontologiaAt,
   publishOdontologia,
 } from "./repositories/fixtures.ts";

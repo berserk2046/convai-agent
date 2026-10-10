@@ -43,6 +43,8 @@ export interface QueueTextInput {
   conversationId: string;
   body: string;
   idempotencyKey: string;
+  /** Extra details kept with the message, e.g. the staff member who wrote it. */
+  details?: Record<string, unknown>;
 }
 
 /**
@@ -54,7 +56,14 @@ export async function sendText(deps: CoreDeps, input: QueueTextInput): Promise<M
     const conversation = await getConversation(tx, input.conversationId);
     if (!conversation) throw new Error("conversation not found");
     if (!serviceWindow(conversation.lastInboundAt, deps.now()).open) throw new WindowClosedError();
-    return insertOutboundMessage(tx, { ...input, type: "text" });
+    return insertOutboundMessage(tx, {
+      businessId: input.businessId,
+      conversationId: input.conversationId,
+      type: "text",
+      body: input.body,
+      idempotencyKey: input.idempotencyKey,
+      ...(input.details ? { payload: input.details } : {}),
+    });
   });
   await deliverPending(deps, input.businessId, input.conversationId);
   return row;

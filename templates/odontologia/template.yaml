@@ -1,7 +1,7 @@
 manifest:
   slug: odontologia
   name: Consultorio odontológico
-  version: 1.0.0
+  version: 1.1.0
   locale: es-CO
   min_platform_version: 0.1.0
   description: >
@@ -69,7 +69,11 @@ config_schema:
             type: string
             enum: [fixed, from, after_evaluation]
             title: Tipo de precio
-            x-ui: { help: "fijo, desde, o se define en la valoración" }
+            x-ui:
+              labels:
+                fixed: Precio fijo
+                from: Desde (precio mínimo)
+                after_evaluation: Se define en la valoración
           price_cop: { $ref: "platform:money_cop", title: Precio (COP) }
           duration_min: { $ref: "platform:duration_min", title: Duración (minutos) }
           description: { type: string, title: Descripción breve }
@@ -158,6 +162,12 @@ agent:
     cancel: { require_confirmation: true }
     handoff:
       reasons: [urgencia, clinico, queja, desconocido, pide_humano, error, price_guard, budget]
+      labels:
+        urgencia: Urgencia
+        clinico: Pregunta clínica
+        queja: Queja
+        desconocido: No supo responder
+        pide_humano: Pide hablar con una persona
   system_prompt: |
     Eres el asistente virtual por WhatsApp de {{ business.business_name }}, un consultorio odontológico en {{ business.city }}.
     Tu trabajo es responder preguntas sobre el consultorio y agendar, mover o cancelar citas. Nada más.

@@ -7,6 +7,12 @@ const ODONTOLOGIA = readFileSync(
   new URL("../../../../templates/odontologia/template.yaml", import.meta.url),
   "utf8",
 );
+const VERSION = /^ {2}version: (\S+)$/m.exec(ODONTOLOGIA)?.[1] ?? "";
+// Versions after the file's, so bumping the template needs no test edits.
+const [MAJOR, MINOR, PATCH] = VERSION.split(".").map(Number) as [number, number, number];
+const NEXT_PATCH = `${String(MAJOR)}.${String(MINOR)}.${String(PATCH + 1)}`;
+const NEXT_MINOR = `${String(MAJOR)}.${String(MINOR + 1)}.0`;
+const NEXT_MAJOR = `${String(MAJOR + 1)}.0.0`;
 
 /** Appendix A with one change applied through the YAML document API. */
 function mutate(change: (doc: Document) => void): string {
@@ -28,7 +34,7 @@ describe("templates/odontologia (Appendix A)", () => {
   });
 
   it("parses into the typed template", () => {
-    expect(report.template?.manifest).toMatchObject({ slug: "odontologia", version: "1.0.0" });
+    expect(report.template?.manifest).toMatchObject({ slug: "odontologia", version: VERSION });
     expect(report.template?.guardrails.opt_out_keywords).toContain("PARA");
   });
 });
@@ -105,7 +111,7 @@ const BROKEN: BrokenCase[] = [
   {
     name: "version already published",
     source: () => ODONTOLOGIA,
-    options: { publishedVersions: ["1.0.0"] },
+    options: { publishedVersions: [VERSION] },
     path: "manifest.version",
     message: /already published/,
   },
@@ -139,6 +145,50 @@ const BROKEN: BrokenCase[] = [
     source: set(["config_schema", "properties", "address", "x-ui", "widget"], "map"),
     path: "config_schema.properties.address.x-ui.widget",
     message: /allowed values/,
+  },
+  {
+    name: "x-ui labels on a field without choices",
+    source: set(["config_schema", "properties", "address", "x-ui", "labels"], { a: "A" }),
+    path: "config_schema.properties.address.x-ui.labels",
+    message: /only for fields with "enum"/,
+  },
+  {
+    name: "x-ui label for a value the field doesn't have",
+    source: set(
+      [
+        "config_schema",
+        "properties",
+        "services",
+        "items",
+        "properties",
+        "price_type",
+        "x-ui",
+        "labels",
+        "gratis",
+      ],
+      "Gratis",
+    ),
+    path: "config_schema.properties.services.items.properties.price_type.x-ui.labels.gratis",
+    message: /"gratis" is not one of the field's values/,
+  },
+  {
+    name: "empty x-ui label",
+    source: set(
+      [
+        "config_schema",
+        "properties",
+        "services",
+        "items",
+        "properties",
+        "price_type",
+        "x-ui",
+        "labels",
+        "fixed",
+      ],
+      "",
+    ),
+    path: "config_schema.properties.services.items.properties.price_type.x-ui.labels.fixed",
+    message: /fewer than 1 characters/,
   },
   {
     name: "config field shadows a computed one",
@@ -235,6 +285,12 @@ const BROKEN: BrokenCase[] = [
     source: set(["agent", "tools", "handoff", "reasons"], ["urgencia", "error", "budget"]),
     path: "agent.tools.handoff.reasons",
     message: /must include "price_guard"/,
+  },
+  {
+    name: "handoff label for a reason the template doesn't have",
+    source: set(["agent", "tools", "handoff", "labels", "otro"], "Otro motivo"),
+    path: "agent.tools.handoff.labels.otro",
+    message: /"otro" is not one of agent\.tools\.handoff\.reasons/,
   },
   {
     name: "no handoff tool",
@@ -516,7 +572,7 @@ describe("upgrades (spec §10 lifecycle, decision A16)", () => {
     });
 
   it("accepts a minor version with text-only changes", () => {
-    const source = bump("1.1.0", (d) =>
+    const source = bump(NEXT_MINOR, (d) =>
       d.setIn(
         ["wa_templates", 1, "body"],
         "Hola {{1}}, gracias por visitarnos en {{2}}. Su reseña nos ayuda mucho: {{3}} ¡Gracias!",
@@ -537,21 +593,21 @@ describe("upgrades (spec §10 lifecycle, decision A16)", () => {
     ["same version", () => ODONTOLOGIA, "manifest.version", /greater than the previous version/],
     [
       "category change in a minor",
-      () => bump("1.1.0", (d) => d.setIn(["wa_templates", 0, "category"], "MARKETING")),
+      () => bump(NEXT_MINOR, (d) => d.setIn(["wa_templates", 0, "category"], "MARKETING")),
       "wa_templates[0].category",
       /bump the major version/,
     ],
     [
       "button change in a minor",
       () =>
-        bump("1.0.1", (d) => d.setIn(["wa_templates", 0, "buttons", 0, "text"], "Sí, confirmo")),
+        bump(NEXT_PATCH, (d) => d.setIn(["wa_templates", 0, "buttons", 0, "text"], "Sí, confirmo")),
       "wa_templates[0].buttons",
       /bump the major version/,
     ],
     [
       "removed template in a minor",
       () =>
-        bump("1.1.0", (d) => {
+        bump(NEXT_MINOR, (d) => {
           d.deleteIn(["wa_templates", 2]);
           d.deleteIn(["automations", 4]);
           d.setIn(
@@ -565,13 +621,15 @@ describe("upgrades (spec §10 lifecycle, decision A16)", () => {
     [
       "new required config field in a minor",
       () =>
-        bump("1.1.0", (d) => {
+        bump(NEXT_MINOR, (d) => {
           d.setIn(["config_schema", "properties", "nit"], { type: "string" });
           d.addIn(["config_schema", "required"], "nit");
           d.setIn(["sample_config", "nit"], "900123456");
         }),
       "config_schema",
-      /breaks configs that were valid in 1\.0\.0 \(sample_config\.nit is required\)/,
+      new RegExp(
+        `breaks configs that were valid in ${VERSION.replaceAll(".", "\\.")} \\(sample_config\\.nit is required\\)`,
+      ),
     ],
   ])("rejects %s", (_name, source, path, message) => {
     expect(errorsOf(source(), { previous })).toContainEqual(
@@ -580,7 +638,7 @@ describe("upgrades (spec §10 lifecycle, decision A16)", () => {
   });
 
   it("allows breaking changes in a major version", () => {
-    const source = bump("2.0.0", (d) => d.setIn(["wa_templates", 0, "category"], "MARKETING"));
+    const source = bump(NEXT_MAJOR, (d) => d.setIn(["wa_templates", 0, "category"], "MARKETING"));
     expect(validateTemplateSource(source, { previous }).ok).toBe(true);
   });
 });

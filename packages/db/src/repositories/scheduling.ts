@@ -1,11 +1,14 @@
-import { and, asc, desc, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, gte, ilike, inArray, lt, ne, or, sql } from "drizzle-orm";
 import { SlotTakenError, pgErrorCode } from "../errors.ts";
 import {
   bookings,
   closures,
+  contacts,
+  conversations,
   resources,
   type BookingRow,
   type ClosureRow,
+  type ContactRow,
   type ResourceRow,
   type WeeklySchedule,
 } from "../schema/index.ts";
@@ -58,6 +61,28 @@ export async function listActiveResources(
     .orderBy(asc(resources.name));
 }
 
+/** Every resource of the business, active or not (the setup screen). */
+export async function listResources(db: Executor, businessId: string): Promise<ResourceRow[]> {
+  return db
+    .select()
+    .from(resources)
+    .where(eq(resources.businessId, businessId))
+    .orderBy(asc(resources.name));
+}
+
+export async function updateResource(
+  db: Executor,
+  resourceId: string,
+  changes: { name?: string; capacity?: number | null; active?: boolean },
+): Promise<ResourceRow | null> {
+  const [row] = await db
+    .update(resources)
+    .set(changes)
+    .where(eq(resources.id, resourceId))
+    .returning();
+  return row ?? null;
+}
+
 export async function getResource(db: Executor, resourceId: string): Promise<ResourceRow | null> {
   const [row] = await db.select().from(resources).where(eq(resources.id, resourceId));
   return row ?? null;
@@ -85,6 +110,14 @@ export async function createClosure(
     .returning();
   if (!row) throw new Error("insert returned no row");
   return row;
+}
+
+export async function deleteClosure(db: Executor, closureId: string): Promise<boolean> {
+  const rows = await db
+    .delete(closures)
+    .where(eq(closures.id, closureId))
+    .returning({ id: closures.id });
+  return rows.length === 1;
 }
 
 /** Closures overlapping [from, to). */
@@ -262,4 +295,88 @@ export async function listBookingsInRange(
       ),
     )
     .orderBy(asc(bookings.startsAt));
+}
+
+// --- staff views (admin /bookings) ------------------------------------------------------------
+
+export interface BookingWithContact {
+  booking: BookingRow;
+  contact: Pick<ContactRow, "id" | "name" | "waProfileName" | "waNumber">;
+  conversationId: string | null;
+}
+
+/** Bookings overlapping [from, to) that aren't cancelled, with who booked. */
+export async function listBookingsWithContacts(
+  db: Executor,
+  businessId: string,
+  from: Date,
+  to: Date,
+): Promise<BookingWithContact[]> {
+  const rows = await db
+    .select({
+      booking: bookings,
+      contact: {
+        id: contacts.id,
+        name: contacts.name,
+        waProfileName: contacts.waProfileName,
+        waNumber: contacts.waNumber,
+      },
+      conversationId: conversations.id,
+    })
+    .from(bookings)
+    .innerJoin(contacts, eq(contacts.id, bookings.contactId))
+    .leftJoin(conversations, eq(conversations.contactId, contacts.id))
+    .where(
+      and(
+        eq(bookings.businessId, businessId),
+        ne(bookings.status, "cancelled"),
+        lt(bookings.startsAt, to),
+        gt(bookings.endsAt, from),
+      ),
+    )
+    .orderBy(asc(bookings.startsAt));
+  return rows;
+}
+
+/** Staff mark a booking as a no-show (spec §12); the completion job leaves those alone. */
+export async function markBookingNoShow(
+  db: Executor,
+  bookingId: string,
+): Promise<BookingRow | null> {
+  const [row] = await db
+    .update(bookings)
+    .set({ status: "no_show", updatedAt: sql`now()` })
+    .where(
+      and(
+        eq(bookings.id, bookingId),
+        inArray(bookings.status, ["pending", "confirmed", "completed"]),
+      ),
+    )
+    .returning();
+  return row ?? null;
+}
+
+/** Contacts whose name, profile name or number contains `query` (the booking form's picker). */
+export async function searchContacts(
+  db: Executor,
+  businessId: string,
+  query: string,
+  limit = 10,
+): Promise<ContactRow[]> {
+  const pattern = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+  return db
+    .select()
+    .from(contacts)
+    .where(
+      and(
+        eq(contacts.businessId, businessId),
+        or(
+          ilike(contacts.name, pattern),
+          ilike(contacts.waProfileName, pattern),
+          ilike(contacts.waNumber, pattern),
+        ),
+      ),
+    )
+    .orderBy(asc(contacts.name))
+    .limit(limit);
 }

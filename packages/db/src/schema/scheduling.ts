@@ -111,6 +111,8 @@ export const bookings = pgTable(
     createdAt: tz("created_at").notNull().defaultNow(),
     updatedAt: tz("updated_at").notNull().defaultNow(),
     rescheduledAt: tz("rescheduled_at"),
+    /** When the customer (or staff) confirmed; kept after completion, for reports. */
+    confirmedAt: tz("confirmed_at"),
     cancelledAt: tz("cancelled_at"),
     completedAt: tz("completed_at"),
   },
@@ -199,11 +201,16 @@ export const usageEvents = pgTable(
     /** Tokens for llm, messages for wa_*. */
     units: integer("units").notNull(),
     costUsd: numeric("cost_usd", { precision: 12, scale: 6 }).notNull(),
+    /** WhatsApp charges: the message billed (at most one charge per message). */
+    messageId: uuid("message_id"),
     details: jsonb("details").$type<Record<string, unknown>>().notNull().default({}),
     at: tz("at").notNull().defaultNow(),
   },
   (t) => [
     index("usage_events_business_at_idx").on(t.businessId, t.at),
+    uniqueIndex("usage_events_message_key")
+      .on(t.messageId)
+      .where(sql`${t.messageId} is not null`),
     check(
       "usage_events_kind_check",
       sql`${t.kind} in ('wa_service', 'wa_utility', 'wa_marketing', 'wa_auth', 'llm')`,

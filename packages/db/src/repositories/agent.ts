@@ -239,6 +239,38 @@ export async function recordUsage(
   });
 }
 
+/**
+ * A WhatsApp charge for one message (ADR 0012). At most one per message: a repeated or
+ * later status webhook for the same message changes nothing.
+ */
+export async function recordMessageCharge(
+  db: Executor,
+  input: {
+    businessId: string;
+    messageId: string;
+    kind: UsageKind;
+    costUsd: number;
+    details: Record<string, unknown>;
+  },
+): Promise<boolean> {
+  const rows = await db
+    .insert(usageEvents)
+    .values({
+      businessId: input.businessId,
+      kind: input.kind,
+      units: 1,
+      costUsd: input.costUsd.toFixed(6),
+      messageId: input.messageId,
+      details: input.details,
+    })
+    .onConflictDoNothing({
+      target: usageEvents.messageId,
+      where: sql`${usageEvents.messageId} is not null`,
+    })
+    .returning({ id: usageEvents.id });
+  return rows.length === 1;
+}
+
 /** Total cost of a usage kind since `from` (the start of the business's month). */
 export async function usageCostSince(
   db: Executor,

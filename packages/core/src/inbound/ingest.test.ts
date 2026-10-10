@@ -158,4 +158,57 @@ describe("ingestWebhookEvents", () => {
     ]);
     expect(h.logs).toContainEqual(expect.objectContaining({ alert: "wa_delivery_failed" }));
   });
+
+  it("charges a delivered message once, at Meta's rate for its category (ADR 0012)", async () => {
+    const [conversation] = await h.testDb.db.select().from(conversations);
+    if (!conversation) throw new Error("no conversation");
+    const wamid = "wamid.CHARGE-TEST-0001";
+    await h.testDb.db.insert(messages).values({
+      businessId: h.business.id,
+      conversationId: conversation.id,
+      direction: "outbound",
+      type: "template",
+      status: "sent",
+      waMessageId: wamid,
+    });
+    const statusEvent = (status: string, type = "regular") => {
+      const json = JSON.stringify(webhookFixture("status-sent"))
+        .replace(/"id":"wamid\.[^"]+"/, `"id":"${wamid}"`)
+        .replace('"status":"sent"', `"status":"${status}"`)
+        .replace('"type":"regular"', `"type":"${type}"`)
+        .replace('"recipient_id":"16505551234"', '"recipient_id":"573001234567"');
+      const parsed = parseWebhook(JSON.parse(json));
+      if (!parsed.ok) throw new Error(parsed.error);
+      return parsed.events;
+    };
+    const charges = () =>
+      h.testDb.pool.query<{ kind: string; cost_usd: string; details: unknown }>(
+        "SELECT kind, cost_usd, details FROM usage_events WHERE message_id IS NOT NULL",
+      );
+
+    await ingestWebhookEvents(deps, statusEvent("sent"));
+    expect((await charges()).rows).toEqual([]); // Meta charges on delivery
+    await ingestWebhookEvents(deps, statusEvent("read"));
+    await ingestWebhookEvents(deps, statusEvent("delivered")); // late: no update, no second charge
+    await ingestWebhookEvents(deps, statusEvent("read"));
+    expect((await charges()).rows).toEqual([
+      {
+        kind: "wa_marketing",
+        cost_usd: "0.012500",
+        details: { category: "marketing", market: "CO" },
+      },
+    ]);
+  });
+
+  it("doesn't charge free deliveries", async () => {
+    const before = await h.testDb.pool.query("SELECT count(*)::int AS n FROM usage_events");
+    const json = JSON.stringify(webhookFixture("status-sent"))
+      .replace('"status":"sent"', '"status":"delivered"')
+      .replace('"type":"regular"', '"type":"free_customer_service"');
+    const parsed = parseWebhook(JSON.parse(json));
+    if (!parsed.ok) throw new Error(parsed.error);
+    await ingestWebhookEvents(deps, parsed.events);
+    const after = await h.testDb.pool.query("SELECT count(*)::int AS n FROM usage_events");
+    expect(after.rows).toEqual(before.rows);
+  });
 });

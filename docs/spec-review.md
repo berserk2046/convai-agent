@@ -29,6 +29,8 @@ wording, so it needs your OK.
 Because "para" is so common, and people send fragments ("Para" ⏎ "mañana a las 10"), the
 check runs on the whole debounced batch, never on one fragment alone. Staff can re-enable
 automatic messages for a contact from the admin (M5).
+**Built (M5):** on the inbox conversation, after staff tick that the person asked for it.
+Audited as `contact.reenable`.
 
 **A3. Emergency during an open handoff (M3, principle 7).** The §7 order runs the emergency
 check before the human-mode check, so the bot would speak during a handoff, while principle
@@ -117,6 +119,9 @@ patients who never wrote to the bot. **Recommend:** staff must tick "el paciente
 tratamiento de datos", which stores `consent_at` and `consent_source = staff`. Automations
 always apply a `has_consent` condition, like `not_opted_out`.
 **M4:** automations always apply both. The staff checkbox comes with the admin (M5).
+**Built (M5):** the checkbox is required when staff create a booking for a new contact, and
+it is also on the inbox conversation for contacts who haven't consented. Audited as
+`contact.consent`.
 
 **A14. Price guard and `after_evaluation` services (M3).** **Recommend:** allowed amounts
 are the prices of `fixed`/`from` services only. An `after_evaluation` price, even if present
@@ -128,6 +133,8 @@ guard allows it. Keep the eval strict as written?
 template in `wa_templates`. **Recommend:** in v1, an inbox item plus an admin badge.
 WhatsApp to staff comes later, through an optional platform-level template.
 **M4:** inbox items are rows in `staff_notifications`; the admin shows them in M5.
+**Built (M5):** an unread count in the business nav and a notices panel in the inbox.
+Opening a notice marks it read and goes to its conversation.
 
 **A16. Meta template changes across versions (M4).** The `<key>_v<major>` name can't change
 within a major version. **Recommend:**
@@ -139,6 +146,10 @@ within a major version. **Recommend:**
 
 **M4:** the template sync job edits a changed body at Meta (behind
 `META_TEMPLATE_SUBMISSION`).
+**Upgrade flow (M5):** the owner opens a newer published version from the business page.
+The screen shows the section diff and checks the business's config against the new schema,
+in the same generated form. The owner fills in what the new version needs, and the upgrade
+pins the version and saves the config together. Audited as `business.upgrade`.
 
 ## B. Smaller resolutions (accepted)
 
@@ -221,6 +232,10 @@ within a major version. **Recommend:**
     are billed at the utility rate after 1,000 free per number per month. Meta's pages I
     could fetch don't confirm it. Using Meta's `billable` flag keeps us correct either
     way, and the rate table gets a `service` entry.
+    **Built (M5, ADR 0012):** a charge per delivered message, priced from the webhook's
+    category. `pricing.type === "regular"` decides what is billable; Meta's current docs
+    confirm that this covers service messages past the 1,000 free. The rates are Meta's
+    Colombia card effective 2026-10-01.
     **Moved to M5** (ADR 0010), where `/usage` shows it. Meta's `pricing` is already
     stored on every message, so nothing is lost meanwhile.
 
@@ -252,6 +267,7 @@ within a major version. **Recommend:**
     key when both rules are `starts_in`. **Implemented (M4).**
 31. Meta may classify `solicitud_resena` as MARKETING. Billing and caps use
     `category_meta`. **Implemented for caps (M4)**; billing comes with B23 in M5.
+    **Billing built (M5):** charges use the category Meta reports in each status webhook.
 
 **Evals and privacy (M6, M7)**
 
@@ -279,6 +295,8 @@ within a major version. **Recommend:**
 - **Built (2026-10-08, ADR 0009):** 19 holidays a year, including Ley 2578 de 2026's new
   Chiquinquirá day. The choice is `businesses.holidays.open_holidays`, a list of holiday
   keys: each holiday can be switched on (open every year) or off (closed, the default).
+- **Admin (M5):** `/setup` lists the 19 holidays with their next date and an open/closed
+  switch each. `/bookings` marks holidays on the grid.
 
 **C3. Usage warning (M4, principle 10).**
 

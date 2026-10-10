@@ -49,8 +49,19 @@ validation keywords.
 | `phone_co`     | optional `+57`, then 10 digits starting with `3` (mobile) or `60` (landline); spaces or dashes allowed                                                           |
 | `url`          | `http(s)://` URI                                                                                                                                                 |
 
-**UI hints.** `x-ui: { section, order, help, widget }`, where `widget` is one of
+**UI hints.** `x-ui: { section, order, help, widget, labels }`, where `widget` is one of
 `textarea`, `weekly-hours` or `table`.
+
+`labels` names the choices of a field with `enum`. The form shows the name and stores the
+value, so prompts and rules keep using the values. A value without a name shows as written.
+Every key must be one of the field's values.
+
+```yaml
+price_type:
+  type: string
+  enum: [fixed, from, after_evaluation]
+  x-ui: { labels: { fixed: Precio fijo, from: Desde (precio mínimo) } }
+```
 
 **Catalogs.** A catalog is a config array of objects with at least `key` and `name`.
 Booking uses `booking.catalog_path` (default `services`) and needs `duration_min` on items
@@ -90,15 +101,20 @@ field must exist, have a compatible type, and be required or have a default.
 Tools come from the code registry. The template enables a tool and binds its server-side
 params; the model never sees those params.
 
-| Tool                 | Template params                                                                    | Before consent |
-| -------------------- | ---------------------------------------------------------------------------------- | -------------- |
-| `lookup_catalog`     | `catalog_path`                                                                     | yes            |
-| `check_availability` | optional overrides of booking rules                                                | yes            |
-| `book`, `reschedule` | optional `require_explicit_confirmation`, `collect`                                | **disabled**   |
-| `find_bookings`      | —                                                                                  | yes            |
-| `cancel`             | `require_confirmation`                                                             | **disabled**   |
-| `handoff`            | `reasons` (must include `error`, `price_guard`, `budget` and the emergency reason) | yes            |
-| `update_contact`     | `writable_fields` (from `contact_fields`)                                          | **disabled**   |
+| Tool                 | Template params                                                                                       | Before consent |
+| -------------------- | ----------------------------------------------------------------------------------------------------- | -------------- |
+| `lookup_catalog`     | `catalog_path`                                                                                        | yes            |
+| `check_availability` | optional overrides of booking rules                                                                   | yes            |
+| `book`, `reschedule` | optional `require_explicit_confirmation`, `collect`                                                   | **disabled**   |
+| `find_bookings`      | —                                                                                                     | yes            |
+| `cancel`             | `require_confirmation`                                                                                | **disabled**   |
+| `handoff`            | `reasons` (must include `error`, `price_guard`, `budget` and the emergency reason); optional `labels` | yes            |
+| `update_contact`     | `writable_fields` (from `contact_fields`)                                                             | **disabled**   |
+
+`handoff.labels` maps reasons to what staff read in the inbox and reports, for example
+`pide_humano: Pide hablar con una persona`. The model never sees them. Reasons without a
+label show humanized (`pide_humano` → "Pide humano"). The admin already names the
+platform's own reasons (`error`, `price_guard`, `budget`).
 
 `handoff` is mandatory (principle 7). Every enabled tool must also be listed in
 `manifest.capabilities.tools`. The model gets the tools in that list's order. Keep the

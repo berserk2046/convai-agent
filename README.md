@@ -6,7 +6,7 @@ type is a vertical template (versioned YAML), not code. See `CLAUDE.md` and
 
 ## Requirements
 
-- Node.js ≥ 24 LTS (CI uses 24; see `.node-version`)
+- Node.js ≥ 24.7 (CI uses 24; see `.node-version`)
 - pnpm 12 (`npm install -g pnpm@12`)
 - Docker with Compose
 
@@ -19,8 +19,21 @@ pnpm db:migrate
 pnpm test
 ```
 
-No `.env` is needed for local development: database and Redis URLs default to the compose
-services. Copy `.env.example` to `.env` to override anything.
+The tests need no `.env`: database and Redis URLs default to the compose services. The
+apps do: copy `.env.example` to `.env` and fill in `ENCRYPTION_KEY`, `SESSION_SECRET` and
+`META_GRAPH_VERSION` (the comments say how).
+
+## Admin
+
+```sh
+pnpm db:migrate        # again after pulling: M5 added the users and sessions tables
+read -rs OWNER_PASSWORD && export OWNER_PASSWORD
+OWNER_EMAIL=you@example.com OWNER_NAME="Your Name" pnpm admin:create-owner
+pnpm dev:admin         # http://localhost:3001
+```
+
+Log in as the owner, upload `templates/odontologia/template.yaml` under Templates, publish it,
+and create a business. "Impersonate" opens the business screens as its admin.
 
 ## Everyday commands
 
@@ -35,5 +48,8 @@ services. Copy `.env.example` to `.env` to override anything.
 | `pnpm template validate <path>`     | Validate a vertical template (see `docs/templates.md`)                      |
 | `pnpm dev:api` / `pnpm dev:worker`  | Run the webhook API / the worker in watch mode                              |
 | `pnpm dev:setup`                    | Demo business on Meta's test number (`docs/whatsapp-test-number.md`)        |
+| `pnpm dev:admin`                    | The admin app (Next.js dev server on port 3001)                             |
+| `pnpm admin:create-owner`           | Create a platform owner (reads `OWNER_*` from the environment)              |
+| `pnpm test:e2e`                     | Build the admin and run the Playwright smoke test (needs Postgres)          |
 
 `docker compose down -v` wipes the local database and Redis.

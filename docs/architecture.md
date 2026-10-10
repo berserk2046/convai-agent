@@ -35,6 +35,7 @@ Resolutions of ambiguous points are in `docs/spec-review.md` and `docs/decisions
 | `channels`    | WhatsApp Cloud client, webhook parsing, 24-hour window logic              |
 | `llm`         | Anthropic client wrapper, prompt caching, token and cost accounting       |
 | `evals`       | Scenario runner, mock clock, mock channel, record/replay LLM              |
+| `services`    | Admin use cases: auth, roles, audit, every screen's reads and writes      |
 
 ## Inbound message path
 
@@ -154,8 +155,9 @@ Implementation details are in `docs/decisions/0010-automations-engine.md`:
   example `min_notice_hours_config: booking_notice_hours`.
 - **Platform schema types:** `platform:weekly_hours`, `money_cop`, `duration_min`,
   `phone_co`, `url`.
-- **UI hints:** `x-ui` keys for the admin form generator. `x-ui` is registered as an Ajv
-  keyword so strict mode stays on.
+- **UI hints:** `x-ui` keys for the admin form generator, including `labels` for the
+  choices of an `enum` (ADR 0014). `x-ui` is registered as an Ajv keyword so strict mode
+  stays on.
 - **Defaults:** Ajv runs with `useDefaults: true`, and the defaulted config is what gets
   stored.
 - **Liquid:** strict variables, `lenientIf`, strict filters, no filesystem, and only the
@@ -194,6 +196,21 @@ Implementation details are in `docs/decisions/0010-automations-engine.md`:
 - **Business staff:** `/inbox` and `/bookings`.
 - **Language:** Spanish labels for business users; English is fine on platform-owner
   screens.
+- **How it's built (M5, ADR 0011):**
+  - Every screen calls `@platform/services`: plain functions that take the session's actor,
+    check its role, and run business work inside `withTenant`. Pages and server actions
+    authorize themselves; there is no proxy/middleware layer.
+  - Sessions are database rows keyed by an HMAC of a random cookie token. Passwords use
+    argon2id from `node:crypto`. Every change is written to `audit_log` in the same
+    transaction.
+  - The inbox updates instantly (ADR 0013). Database triggers send a Postgres notification
+    with the business id when anything the inbox shows changes. The admin forwards it to
+    that business's open tabs as server-sent events, and the tabs re-render.
+  - The look (tokens, shared components) and where to change it: `docs/admin-ui.md`.
+  - The playground arrives with the evals in M6.
+- **Cost (ADR 0012):** AI spend comes from the LLM usage events. WhatsApp spend is recorded
+  when a message's status webhook reports it delivered and billable, at Meta's list rate for
+  Colombia. `/usage` and `/reports` add both up.
 
 ## Data model
 

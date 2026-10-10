@@ -78,6 +78,27 @@
       "when": 1791507544738,
       "tag": "0010_automations_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791604699763,
+      "tag": "0011_admin_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791604700940,
+      "tag": "0012_admin_auth_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791653456411,
+      "tag": "0013_inbox_notify",
+      "breakpoints": true
     }
   ]
 }

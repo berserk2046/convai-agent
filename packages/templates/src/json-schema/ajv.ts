@@ -16,6 +16,8 @@ const X_UI_META_SCHEMA = {
     order: { type: "number" },
     help: { type: "string" },
     widget: { enum: UI_WIDGETS },
+    /** Display names for an `enum`'s values, `{ value: "Label" }`; the value is what's stored. */
+    labels: { type: "object", additionalProperties: { type: "string", minLength: 1 } },
   },
 };
 

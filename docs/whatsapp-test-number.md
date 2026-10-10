@@ -117,5 +117,23 @@ default. Once approved:
    - **Necesito cambiar** hands the conversation to the agent to reschedule.
 
 The worker logs every run with `automation run finished` and its status and reason.
-Notifications for staff (unconfirmed bookings, usage at 90% of a cap) go to the
-`staff_notifications` table until the admin inbox exists (M5).
+Notifications for staff (unconfirmed bookings, usage at 90% of a cap) show as notices in
+the admin's inbox (section 9).
+
+## 9. Watch it from the admin (M5)
+
+1. Create your owner account once, then start the admin with `pnpm dev:admin`. The steps
+   are in the README's Admin section.
+2. On `/businesses`, open the demo clinic and click **Impersonate**. This opens its screens
+   as its admin.
+3. Keep `/inbox` open while you write from your phone. New conversations, handoffs and
+   messages appear without reloading (ADR 0013).
+4. After the emergency message in section 7, open the conversation. Reply from the admin
+   (it reaches your phone), then click **Devolver al asistente** and write again: the bot
+   answers.
+5. `/bookings` shows the agent's bookings. `/reports` and the owner's `/usage` show the AI
+   and WhatsApp costs of the month.
+
+If `pnpm dev:setup` created the demo clinic before the dental template's 1.1.0, it is
+still on 1.0.0 and its choices show raw codes (`fixed`). Upgrade it from its page on
+`/businesses`.
