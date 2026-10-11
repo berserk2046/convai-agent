@@ -1,4 +1,4 @@
-import type { Anthropic, LlmClient } from "@platform/llm";
+import { thinksAdaptively, type Anthropic, type LlmClient } from "@platform/llm";
 import type { ToolOutcome } from "./tools/types.ts";
 
 /**
@@ -33,8 +33,11 @@ export interface ModelRun {
   transcript: Anthropic.MessageParam[];
 }
 
-/** Replies are a few sentences; this only bounds runaway output. */
-const MAX_TOKENS = 1024;
+/**
+ * Replies are a few sentences; this bounds runaway output. On models that think by
+ * default, thinking counts toward it too, so it leaves room for that (ADR 0017).
+ */
+const MAX_TOKENS = 4096;
 
 export async function runModel(
   llm: LlmClient,
@@ -85,8 +88,10 @@ export async function runModel(
 }
 
 /**
- * Price-guard retry (spec §7.6): the same conversation, a corrective system note, tools
- * listed (the history has tool blocks) but not callable.
+ * Price-guard retry (spec §7.6): the same conversation, a corrective note, tools listed
+ * (the history has tool blocks) but not callable. On models that think by default, the
+ * transcript carries thinking blocks, and changing `system` before them is refused, so the
+ * note goes at the end as a mid-conversation system message instead (ADR 0017).
  */
 export async function rewrite(
   llm: LlmClient,
@@ -94,10 +99,11 @@ export async function rewrite(
   transcript: Anthropic.MessageParam[],
   note: string,
 ): Promise<string> {
+  const appendOnly = thinksAdaptively(request.model);
   const response = await llm.createMessage({
     ...request,
-    system: [...request.system, { type: "text", text: note }],
-    messages: transcript,
+    system: appendOnly ? request.system : [...request.system, { type: "text", text: note }],
+    messages: appendOnly ? [...transcript, { role: "system", content: note }] : transcript,
     tool_choice: { type: "none" },
     max_tokens: MAX_TOKENS,
   });

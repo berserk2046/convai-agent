@@ -16,3 +16,15 @@ export * from "./repositories/messages.ts";
 export * from "./repositories/reports.ts";
 export * from "./repositories/agent.ts";
 export * from "./repositories/scheduling.ts";
+export * from "./repositories/evals.ts";
+export * from "./repositories/playground.ts";
+export {
+  SCRATCH_PREFIXES,
+  createScratchDatabase,
+  dropScratchDatabase,
+  isScratchName,
+  listScratchDatabases,
+  scratchCreatedAt,
+  scratchDatabaseName,
+  type ScratchPrefix,
+} from "./scratch.ts";

@@ -12,6 +12,7 @@ import {
   ODONTOLOGIA_VERSION as CURRENT,
   laterVersion,
   odontologiaAt,
+  recordPassingEvalRun,
 } from "@platform/db/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -130,6 +131,15 @@ describe("templates (platform owner)", () => {
       text: expect.stringContaining("Tu trabajo es responder preguntas"),
     });
 
+    // Spec §10: no publishing without a live eval run of this upload that passes the gate.
+    await expect(publishTemplate(h.deps, owner, "odontologia", NEXT_MAJOR)).rejects.toMatchObject({
+      code: "evals_required",
+      message: expect.stringContaining("Run the evals first") as unknown,
+    });
+    await recordPassingEvalRun(h.deps.db, "odontologia", NEXT_MAJOR);
+    expect(
+      (await templateDetail(h.deps, owner, "odontologia", NEXT_MAJOR)).evals.blocker,
+    ).toBeNull();
     await publishTemplate(h.deps, owner, "odontologia", NEXT_MAJOR);
     await expect(publishTemplate(h.deps, owner, "odontologia", NEXT_MAJOR)).rejects.toBeInstanceOf(
       ActionRefusedError,

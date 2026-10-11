@@ -1,3 +1,4 @@
+import { isKnownModel } from "@platform/llm";
 import {
   ConfigError,
   agentEnv,
@@ -5,6 +6,7 @@ import {
   baseEnv,
   databaseEnv,
   encryptionEnv,
+  evalsEnv,
   inboundEnv,
   metaEnv,
   parseEnv,
@@ -18,7 +20,8 @@ const workerEnv = baseEnv
   .extend(encryptionEnv.shape)
   .extend(inboundEnv.shape)
   .extend(agentEnv.shape)
-  .extend(automationsEnv.shape);
+  .extend(automationsEnv.shape)
+  .extend(evalsEnv.pick({ JUDGE_MODEL: true }).shape);
 
 export function loadWorkerConfig(env: Record<string, string | undefined> = process.env) {
   const config = parseEnv(workerEnv, env);
@@ -31,6 +34,10 @@ export function loadWorkerConfig(env: Record<string, string | undefined> = proce
     issues.push(
       "ANTHROPIC_API_KEY: is required when INBOUND_HANDLER=agent (use off or echo without a key)",
     );
+  }
+  if (!isKnownModel(config.JUDGE_MODEL)) {
+    // Eval spend must be counted (principle 10), so the judge needs a price.
+    issues.push(`JUDGE_MODEL: "${config.JUDGE_MODEL}" has no price in @platform/llm`);
   }
   if (issues.length > 0) throw new ConfigError(issues);
   return config;

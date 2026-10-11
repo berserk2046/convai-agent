@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { NO_USAGE, addUsage, usageOf, type TokenUsage } from "./pricing.ts";
+import { NO_USAGE, addUsage, costUsd, isKnownModel, usageOf, type TokenUsage } from "./pricing.ts";
 
 /**
  * The one door to the Anthropic Messages API. The agent only depends on `LlmClient`, so
@@ -30,21 +30,29 @@ export function createAnthropicLlm(options: AnthropicLlmOptions): LlmClient {
 export interface MeteredLlm extends LlmClient {
   /** Tokens of every response so far. */
   readonly usage: TokenUsage;
+  /** USD of every response so far, priced request by request (models without a price add 0). */
+  readonly costUsd: number;
 }
 
 /**
- * Adds up the usage of every response, so spend is recorded even when a turn fails after
- * some calls succeeded (principle 10).
+ * Adds up the usage and cost of every response, so spend is recorded even when a turn
+ * fails after some calls succeeded (principle 10). Callers refuse unpriced models first.
  */
 export function meteredLlm(llm: LlmClient): MeteredLlm {
   let usage = NO_USAGE;
+  let cost = 0;
   return {
     get usage() {
       return usage;
     },
+    get costUsd() {
+      return cost;
+    },
     async createMessage(params) {
       const response = await llm.createMessage(params);
-      usage = addUsage(usage, usageOf(response));
+      const used = usageOf(response);
+      usage = addUsage(usage, used);
+      if (isKnownModel(params.model)) cost += costUsd(params.model, used);
       return response;
     },
   };

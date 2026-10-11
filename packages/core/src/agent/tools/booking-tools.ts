@@ -87,8 +87,13 @@ export const book: AgentTool = {
     const subject = cleanName(String(input.subject_name));
     if (!subject)
       return toolError("invalid_name", "Ask for the attendee's full name (letters only).");
-    const partySize = typeof input.party_size === "number" ? input.party_size : undefined;
-    if (rules.collect.includes("party_size") && partySize === undefined) {
+    // Party size only means something where the template collects it (restaurants).
+    // Elsewhere a value the model adds is dropped, so a confirmation that says "1" where the
+    // proposal said nothing still matches it (decision A5; ADR 0017 eval finding).
+    const collectsPartySize = rules.collect.includes("party_size");
+    const partySize =
+      collectsPartySize && typeof input.party_size === "number" ? input.party_size : undefined;
+    if (collectsPartySize && partySize === undefined) {
       return toolError("missing_party_size", "Ask how many people will come.");
     }
 

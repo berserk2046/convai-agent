@@ -1,10 +1,6 @@
-import { randomUUID } from "node:crypto";
 import { databaseEnv, parseEnv } from "@platform/shared";
-import pg from "pg";
 import { createDb, type DbHandle } from "./client.ts";
-import { connectionError } from "./connection.ts";
-import { runMigrations } from "./migrate.ts";
-import { withDatabaseName } from "./url.ts";
+import { createScratchDatabase, dropScratchDatabase, scratchDatabaseName } from "./scratch.ts";
 
 export interface TestDatabase extends DbHandle {
   url: string;
@@ -20,15 +16,11 @@ export interface TestDatabase extends DbHandle {
  */
 export async function createTestDatabase(options: { name?: string } = {}): Promise<TestDatabase> {
   const { DATABASE_URL: serverUrl } = parseEnv(databaseEnv);
-  const name = options.name ?? `test_${randomUUID().replaceAll("-", "")}`;
+  const name = options.name ?? scratchDatabaseName("test");
   if (!/^(test|e2e)_[a-z0-9_]+$/.test(name)) {
     throw new Error(`test database names start with test_ or e2e_, not "${name}"`);
   }
-  if (options.name) await runOnServer(serverUrl, `DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-  await runOnServer(serverUrl, `CREATE DATABASE ${name}`);
-
-  const url = withDatabaseName(serverUrl, name);
-  await runMigrations(url);
+  const url = await createScratchDatabase(serverUrl, name, { replace: options.name !== undefined });
   const handle = createDb(url, { maxConnections: 5 });
 
   return {
@@ -37,26 +29,13 @@ export async function createTestDatabase(options: { name?: string } = {}): Promi
     name,
     async drop() {
       await handle.close();
-      await runOnServer(serverUrl, `DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+      await dropScratchDatabase(serverUrl, name);
     },
   };
 }
 
-async function runOnServer(serverUrl: string, sql: string): Promise<void> {
-  const client = new pg.Client({ connectionString: serverUrl });
-  try {
-    await client.connect();
-  } catch (error) {
-    throw connectionError(serverUrl, error);
-  }
-  try {
-    await client.query(sql);
-  } finally {
-    await client.end();
-  }
-}
-
 export {
+  ODONTOLOGIA_MODEL,
   ODONTOLOGIA_SAMPLE_CONFIG,
   ODONTOLOGIA_SOURCE,
   ODONTOLOGIA_VERSION,
@@ -64,4 +43,5 @@ export {
   laterVersion,
   odontologiaAt,
   publishOdontologia,
+  recordPassingEvalRun,
 } from "./repositories/fixtures.ts";

@@ -14,6 +14,7 @@ export {
   addUsage,
   costUsd,
   isKnownModel,
+  thinksAdaptively,
   usageOf,
   type ModelPrice,
   type TokenUsage,

@@ -4,11 +4,13 @@ import { ODONTOLOGIA_VERSION } from "@platform/db/testing";
 import { holidayOn } from "@platform/shared";
 import { closeCustomer, customerSays, toolResult } from "./customer.ts";
 import { E2E } from "./env.ts";
+import { finishQueuedEvalRun } from "./worker.ts";
 
 /**
  * Spec §15 M5 "done when": create a dental business from the UI, fill in the generated
  * setup form, add 2 chairs, see bookings created by the agent, answer a handoff from the
  * inbox, and return the conversation to the bot. One test, in order, like a real setup.
+ * M6 adds the eval gate before publishing and a chat in the playground.
  */
 
 const TEMPLATE = fileURLToPath(
@@ -58,8 +60,49 @@ test("M5: set up a dental business, let the agent book, answer a handoff, hand b
     await page.getByLabel("Template YAML file").setInputFiles(TEMPLATE);
     await page.getByRole("button", { name: "Validate and save as draft" }).click();
     await page.getByRole("link", { name: "Review and publish" }).click();
+
+    // Spec §10: publishing waits for a live eval run that passes the gate.
+    await expect(page.getByText("Not publishable yet.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Publish" })).toBeDisabled();
+    await page.getByRole("button", { name: "Run evals" }).click();
+    await expect(page.getByText("Eval run queued")).toBeVisible();
+    await finishQueuedEvalRun();
+    // The page follows the run on its own while it's in progress.
+    await expect(page.getByText("passed the gate")).toBeVisible();
+    await page.getByRole("link", { name: "Report" }).click();
+    await expect(page.getByRole("heading", { name: "Summary" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "agenda_simple" })).toBeVisible();
+    await page.goBack();
+
     await page.getByRole("button", { name: "Publish" }).click();
     await expect(page.getByRole("button", { name: "Deprecate" })).toBeVisible();
+  });
+
+  await test.step("the owner tries the template in the playground; nothing reaches WhatsApp", async () => {
+    await page.getByRole("link", { name: "Try it in the playground" }).click();
+    await page.getByRole("button", { name: "Start a chat" }).click();
+    await page.waitForURL(/\/playground\/[0-9a-f-]{36}$/);
+    await expect(page.getByText(/Sandbox ready with the template's sample config/)).toBeVisible();
+
+    const message = page.getByLabel("Message as the customer");
+    await message.fill("Hola, ¿cuánto vale una limpieza?");
+    await message.press("Enter");
+    await expect(page.getByText("La limpieza dental tiene un valor de $120.000.")).toBeVisible();
+    await expect(page.getByText(/0 tool call\(s\) · \d+ in \/ \d+ out tokens/)).toBeVisible();
+
+    // An emergency: the template's fixed reply, a handoff, and the bot goes quiet.
+    await message.fill("Me duele muchísimo y tengo la cara hinchada");
+    await message.press("Enter");
+    await expect(page.getByText("Staff (the bot is silent)")).toBeVisible();
+    await page.getByRole("button", { name: "Close handoff, back to the bot" }).click();
+    await expect(page.getByText("The bot", { exact: true })).toBeVisible();
+
+    const sent = (await (
+      await fetch(`${process.env.META_GRAPH_BASE_URL ?? ""}/__requests`)
+    ).json()) as unknown[];
+    expect(sent).toHaveLength(0);
+    await page.getByRole("button", { name: "End chat" }).click();
+    await expect(page.getByText("This chat has ended.")).toBeVisible();
   });
 
   await test.step("the owner creates the business, connects WhatsApp and adds its admin", async () => {

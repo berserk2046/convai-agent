@@ -1,7 +1,8 @@
 /**
  * Local setup for trying the platform on Meta's test number (spec §15, M2 acceptance):
  * publishes templates/odontologia, creates a demo business, connects the test number.
- * Development only. The access token comes from the environment, never from arguments,
+ * Development only: it publishes without the eval gate (spec §10, ADR 0015), which the
+ * admin and `pnpm template publish` enforce. The access token comes from the environment, never from arguments,
  * so it doesn't end up in shell history. Re-running is safe.
  */
 import { readFile } from "node:fs/promises";
@@ -66,7 +67,7 @@ try {
     await setTemplateStatus(db, slug, version, "published");
     logger.info(
       { template: `${slug}@${version}` },
-      "template published (dev; the eval gate arrives in M6)",
+      "template published without the eval gate (local development only)",
     );
   }
 

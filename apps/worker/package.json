@@ -15,6 +15,7 @@
     "@platform/channels": "workspace:*",
     "@platform/core": "workspace:*",
     "@platform/db": "workspace:*",
+    "@platform/evals": "workspace:*",
     "@platform/llm": "workspace:*",
     "@platform/scheduling": "workspace:*",
     "@platform/shared": "workspace:*"

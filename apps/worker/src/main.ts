@@ -28,6 +28,7 @@ import {
   type Responder,
 } from "@platform/core";
 import { createDb } from "@platform/db";
+import { CLEANUP_EVERY_MS, cleanupSandboxes, startEvalLoop } from "@platform/evals";
 import { createAnthropicLlm } from "@platform/llm";
 import { builtinProvider } from "@platform/scheduling";
 import { alert, createLogger, createSecretBox } from "@platform/shared";
@@ -64,16 +65,18 @@ const automationDeps: AutomationDeps = {
   provider: builtinProvider,
 };
 
+const llm = env.ANTHROPIC_API_KEY ? createAnthropicLlm({ apiKey: env.ANTHROPIC_API_KEY }) : null;
+
 function responderFor(handler: typeof env.INBOUND_HANDLER): Responder {
   if (handler === "echo") return echoResponder;
-  if (handler === "off" || env.ANTHROPIC_API_KEY === undefined) return silentResponder;
+  if (handler === "off" || llm === null) return silentResponder;
   return createAgentResponder({
     db: database.db,
     logger,
     now,
     provider: builtinProvider,
     events,
-    llm: createAnthropicLlm({ apiKey: env.ANTHROPIC_API_KEY }),
+    llm,
     llmBudgetUsdMonth: env.LLM_BUDGET_USD_MONTH,
     buttons: createButtonHandler(automationDeps),
   });
@@ -152,12 +155,28 @@ const jobs: MaintenanceJob[] = [
         submissionEnabled: env.META_TEMPLATE_SUBMISSION === "on",
       }),
   },
+  {
+    // Playground sessions idle for a day, and scratch databases nothing uses (ADR 0016).
+    name: "cleanup-sandboxes",
+    everyMs: CLEANUP_EVERY_MS,
+    run: () => cleanupSandboxes({ db: database.db, databaseUrl: env.DATABASE_URL, logger, now }),
+  },
 ];
 const maintenanceQueue = createMaintenanceQueue(connection);
 await scheduleMaintenance(maintenanceQueue, jobs);
 const maintenance = createMaintenanceWorker(connection, jobs);
 maintenance.on("failed", (job, error) => {
   alert(logger, "maintenance_job_failed", { job: job?.name, err: error }, "maintenance job failed");
+});
+
+// Eval runs the admin queues (spec §11, ADR 0015), one at a time.
+const evalLoop = startEvalLoop({
+  db: database.db,
+  databaseUrl: env.DATABASE_URL,
+  logger,
+  llm,
+  judgeModel: env.JUDGE_MODEL,
+  now,
 });
 
 logger.info(
@@ -167,6 +186,7 @@ logger.info(
 
 async function shutdown(signal: string): Promise<void> {
   logger.info({ signal }, "shutting down");
+  await evalLoop.stop();
   await inbound.close();
   await automations.close();
   await maintenance.close();

@@ -12,7 +12,8 @@ export {
   type MaintenanceJob,
 } from "./maintenance.ts";
 export type { ButtonHandler, ButtonInput, ButtonOutcome } from "./agent/buttons.ts";
-export { monthStart, normalize } from "./agent/guardrails.ts";
+export { extractMoneyAmounts, monthStart, normalize } from "./agent/guardrails.ts";
+export type { ToolCallLog } from "./agent/loop.ts";
 export { USAGE_THRESHOLDS, usageText, warnOnUsage, type UsageCap } from "./usage.ts";
 export {
   createChannelResolver,

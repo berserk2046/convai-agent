@@ -13,20 +13,39 @@ package, not code.
 
 Update this section at the end of each milestone.
 
-- **Done and approved:** M0–M5, all on `main`. M5 is the admin app: auth and roles, every
-  §12 screen except the playground, the instant inbox (ADR 0013), WhatsApp cost recording
-  (ADR 0012) and display labels in templates (ADR 0014).
-- **Next:** M6, evals and the playground (spec §15). Start it only when the owner asks.
+- **Done and approved:** M0–M6, all on `main`.
+  - M5 is the admin app: auth and roles, every §12 screen, the instant inbox (ADR 0013),
+    WhatsApp cost recording (ADR 0012) and display labels in templates (ADR 0014).
+  - M6 is the evals and the playground (ADR 0015, ADR 0016): the eval runner on scratch
+    databases with record/replay and a Sonnet judge, the publish gate, eval reports and
+    **Run evals** in the admin, `/playground`, `pnpm template eval|push|publish`, CI replay
+    and the nightly live workflow.
+  - The dental template is `1.2.0` on Claude Haiku 5.5 (ADR 0017). Its live evals pass
+    45/45, gate passed.
+- **Next:** M7, pilot hardening and deploy (spec §15). Start it only when the owner asks.
 - **Waiting on the owner:**
-  - Live checks on Meta's test number and with a real Anthropic key. They are blocked until
-    the owner's Meta business account is sorted out and a key exists. The steps are in
-    `docs/whatsapp-test-number.md`.
+  - Live checks on Meta's test number (M2–M5). They are blocked until the owner's Meta
+    business account is sorted out. The steps are in `docs/whatsapp-test-number.md`. The
+    Anthropic key exists since 2026-10-10.
+  - The `ANTHROPIC_API_KEY` repository secret, for the nightly live evals (about $0.045 a
+    run). The live evals themselves ran on 2026-10-10 (ADR 0017).
   - Submitting the message templates to Meta (`META_TEMPLATE_SUBMISSION`). Ask again once
     the Meta account works.
   - A review of how the admin looks. Start from `docs/admin-ui.md`.
-- **Carry into M7:** check that Caddy streams `/inbox/events` unbuffered (ADR 0013).
-- **Local setup after pulling:** run `pnpm db:migrate`. The dental template is at 1.1.0; a
-  local business on 1.0.0 moves with the owner's upgrade screen.
+- **Carry into M7:**
+  - Check that Caddy streams `/inbox/events` unbuffered (ADR 0013).
+  - The production database role needs `CREATEDB` for eval runs and the playground (ADR
+    0015).
+- **Local setup after pulling:** run `pnpm db:migrate` (M6 adds `eval_runs` and
+  `playground_sessions`). The dental template is at 1.2.0; a local business on an older
+  version moves with the owner's upgrade screen.
+- **Spending (owner's rule, 2026-10-10):**
+  - The Anthropic account had $5 of credit. About $4.85 was left after the M6 live checks
+    ($0.148 spent), and part of it is kept for M7.
+  - Paid runs (anything that calls the Claude API for money) need the owner's explicit OK
+    first. Free runs (tests with fakes, replays, token counting) don't.
+  - Before each run, give its estimated cost; after it, report what it used.
+  - Live CLI runs use `--max-cost`.
 
 ## How to work
 
@@ -107,6 +126,8 @@ pnpm format                 # prettier --write
 pnpm db:generate            # drizzle-kit: schema changes → SQL migration
 pnpm db:new <name>          # empty custom SQL migration (constraints, RLS)
 pnpm template validate <path> [--previous <path>]   # validate a vertical template
+pnpm template eval <path> [--live [--record]] [--only <ids>]   # evals; replay by default
+pnpm template push <path> / eval <slug>@<v> / publish <slug>@<v>   # upload, gate run, publish
 pnpm dev:api / pnpm dev:worker   # run the webhook API and the worker (watch mode)
 pnpm dev:setup                   # local demo business + Meta test number (docs/whatsapp-test-number.md)
 pnpm dev:admin                   # admin app on :3001 (loads the root .env)
@@ -114,7 +135,7 @@ pnpm admin:create-owner          # platform owner from OWNER_EMAIL / OWNER_NAME 
 pnpm test:e2e                    # build the admin + Playwright smoke test (fake Graph, scripted LLM)
 ```
 
-Template authoring rules, variables and filters: `docs/templates.md`. Tenant-scoped DB work
+Template authoring rules, variables, filters and eval semantics: `docs/templates.md`. Tenant-scoped DB work
 always goes through `withTenant()` (`docs/decisions/0005-tenant-isolation-rls.md`). Admin
 screens call `@platform/services`; each page and server action checks the session itself
 (`docs/decisions/0011-admin-and-auth.md`); where to change its look: `docs/admin-ui.md`.

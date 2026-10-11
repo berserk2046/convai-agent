@@ -31,3 +31,5 @@ export * from "./platform/businesses.ts";
 export * from "./platform/templates.ts";
 export * from "./platform/usage.ts";
 export { currentMonth } from "./time.ts";
+export * from "./platform/evals.ts";
+export * from "./platform/playground.ts";

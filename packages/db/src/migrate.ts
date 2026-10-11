@@ -3,7 +3,10 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import pg from "pg";
 
-export const MIGRATIONS_FOLDER = fileURLToPath(new URL("../migrations", import.meta.url));
+// Built from parts so a bundler (the admin's Turbopack) doesn't try to bundle the folder as
+// an asset; it keeps import.meta.url pointing at this source file, so the path still holds.
+const MIGRATIONS_RELATIVE = ["..", "migrations"].join("/");
+export const MIGRATIONS_FOLDER = fileURLToPath(new URL(MIGRATIONS_RELATIVE, import.meta.url));
 
 /** Serializes concurrent runs, e.g. api and worker starting together. Any constant works. */
 const MIGRATION_LOCK_KEY = 7_204_250_001;

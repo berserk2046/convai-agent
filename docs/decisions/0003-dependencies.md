@@ -33,6 +33,8 @@ Spec §4 packages in use:
 - M5 (`apps/admin`, ADR 0011): `next` 16.3.8 with `react`/`react-dom` 19.3, `tailwindcss`
   4.3, `@rjsf/core` 6.11, and `@playwright/test` 1.64 for the smoke test.
   `@platform/services` reuses `yaml` for template diffs.
+- M6: none. Evals, the judge, record/replay, the scratch databases and the playground
+  reuse `@anthropic-ai/sdk`, `pg`, `drizzle-orm`, `zod` and `luxon` (ADR 0015, ADR 0016).
 
 | Package        | Scope   | Why                                                                                   | Milestone |
 | -------------- | ------- | ------------------------------------------------------------------------------------- | --------- |

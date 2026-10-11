@@ -15,6 +15,8 @@
   "dependencies": {
     "@platform/channels": "workspace:*",
     "@platform/db": "workspace:*",
+    "@platform/evals": "workspace:*",
+    "@platform/llm": "workspace:*",
     "@platform/services": "workspace:*",
     "@platform/shared": "workspace:*",
     "@platform/templates": "workspace:*",
@@ -27,7 +29,6 @@
   },
   "devDependencies": {
     "@platform/core": "workspace:*",
-    "@platform/llm": "workspace:*",
     "@platform/scheduling": "workspace:*",
     "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "4.3.3",

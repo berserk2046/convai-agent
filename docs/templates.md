@@ -309,23 +309,85 @@ How rules run (ADR 0010):
 A scenario has these fields:
 
 - `id` and `critical`;
-- optional `clock` (ISO with offset; the default is `2026-10-05T09:00:00-05:00`);
-- optional `consent: pending`;
-- optional `fixtures` (`bookings`, `contact`);
-- `turns` (`user:` or `expect_tool:`);
+- optional `clock` (ISO with offset; the default is `2026-10-05T09:00:00-05:00`, a Monday);
+- optional `consent: pending` (a first-time customer who hasn't accepted the privacy
+  notice; otherwise the eval customer accepted it the day before);
+- optional `fixtures`: `bookings` (the eval customer's existing bookings) and `contact`
+  (`name`, `fields`);
+- `turns`: `user:` messages, and `expect_tool:` checkpoints;
 - `assert`.
+
+How a scenario runs (ADR 0015):
+
+- It gets its own sandbox business with `sample_config`, the resources in `eval_fixtures`,
+  and one customer.
+- Each `user:` message goes through the real pipeline: webhook ingest, the agent and its
+  tools, then a mock channel. Nothing reaches WhatsApp.
+- The mock clock starts at `clock` and moves one minute per message.
+- Automations don't run; booking events are recorded only.
+- `expect_tool: <name>` needs that tool to have succeeded during the previous user
+  message. If it didn't, the scenario stops there and fails.
 
 Assertions:
 
-- `tool_called`, `no_tool`;
-- `booking_created`, `bookings_count`;
-- `handoff`, `no_handoff`;
-- `reply_contains`, `reply_not_matches`, `reply_contains_price`;
-- `judge`.
+| Assertion                       | Passes when                                                                                                    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `tool_called: <name>`           | the tool was called and succeeded at least once                                                                |
+| `no_tool: [<names>]`            | none of them was called at all, even unsuccessfully                                                            |
+| `booking_created: {…}`          | a booking made during the scenario has that service, business-local date and `HH:mm`, and is still active      |
+| `bookings_count: n`             | the customer has `n` active (pending or confirmed) bookings at the end, fixtures included                      |
+| `handoff: { reason }`           | a handoff with that reason was opened                                                                          |
+| `no_handoff: true`              | no handoff was opened                                                                                          |
+| `reply_contains: [..]`          | the replies to the **last** user message contain every text, ignoring case and accents                         |
+| `reply_not_matches: [regex..]`  | **no** reply in the scenario matches any pattern (compiled with `iu`)                                          |
+| `reply_contains_price: { key }` | the replies to the last user message quote the item's exact catalog price, in any format the price guard reads |
+| `judge: "<rubric>"`             | the judge model (`JUDGE_MODEL`, Sonnet) reads the conversation and says it meets every point of the rubric     |
+
+Use `judge` sparingly. It costs a model call, and a deterministic assertion says more when
+it fails. A run ends in one of three ways:
+
+- **passed**: every assertion held;
+- **failed**: an assertion didn't hold, so it's the agent's behavior;
+- **error**: the model API failed, or a replay recording is missing. That isn't the agent's
+  fault, but it still doesn't count as a pass.
 
 The validator checks that tools are enabled, that services exist (and are bookable for
 fixtures), that handoff reasons are allowed, and that `eval_fixtures.resources` has the
 booking resource kind.
+
+### Running evals
+
+```sh
+pnpm template eval templates/odontologia                 # replay (EVAL_LLM), 1 run each
+pnpm template eval templates/odontologia --live          # the real model, 3 runs each
+pnpm template eval templates/odontologia --live --record # also writes eval-recordings.json
+pnpm template eval templates/odontologia --only urgencia,opt_out
+```
+
+- **Replay** answers from `templates/<slug>/eval-recordings.json`. Each recorded response
+  is filed under a hash of the request that produced it. If a prompt, a tool, the template
+  text or a reply changes, the hash changes too, and the scenario errors with
+  "re-record". Re-record after such changes and commit the file. CI replays every PR.
+- **Live** calls Claude and costs money (each run prints its cost). CI runs it nightly when
+  the `ANTHROPIC_API_KEY` secret is set.
+
+### The publish gate (spec §10)
+
+A version can be published only after a **live** eval run of its current upload where:
+
+- every run of every `critical` scenario passes (3 runs each);
+- at least 90% of all runs pass.
+
+Start the run with **Run evals** on the version's admin page; the worker runs it. Or from
+the server:
+
+```sh
+pnpm template push templates/odontologia      # upload as a draft
+pnpm template eval odontologia@1.2.0          # live, saved for the gate
+pnpm template publish odontologia@1.2.0
+```
+
+Re-uploading a draft makes its earlier runs stale: run the evals again.
 
 ## Versions
 

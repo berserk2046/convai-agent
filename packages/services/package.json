@@ -17,6 +17,8 @@
     "@platform/channels": "workspace:*",
     "@platform/core": "workspace:*",
     "@platform/db": "workspace:*",
+    "@platform/evals": "workspace:*",
+    "@platform/llm": "workspace:*",
     "@platform/shared": "workspace:*",
     "@platform/templates": "workspace:*",
     "drizzle-orm": "^0.45.3",
@@ -25,7 +27,6 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@platform/llm": "workspace:*",
     "@types/luxon": "^3.7.6"
   }
 }

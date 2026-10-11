@@ -50,6 +50,17 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm db:migrate
       - run: pnpm test
+      # Spec §11: every template's evals on every PR, replaying recorded model answers
+      # (free and fast; a prompt or tool change without new recordings fails here).
+      - name: Evals (replay)
+        run: |
+          for dir in templates/*/; do
+            if [ -f "${dir}eval-recordings.json" ]; then
+              pnpm template eval "$dir" --replay
+            else
+              echo "::notice::${dir} has no eval recordings yet: pnpm template eval ${dir} --live --record"
+            fi
+          done
 
   e2e:
     # The admin's Playwright smoke test (spec §15 M5): a built admin on its own database,

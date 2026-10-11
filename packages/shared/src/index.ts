@@ -8,6 +8,7 @@ export {
   baseEnv,
   databaseEnv,
   encryptionEnv,
+  evalsEnv,
   inboundEnv,
   metaEnv,
   parseEnv,

@@ -105,18 +105,27 @@ export async function setTemplateStatus(
   return row;
 }
 
+/** Compiled templates of immutable versions, by row id; the oldest is evicted first. */
 const prepared = new Map<string, PreparedTemplate>();
+const PREPARED_CACHE_SIZE = 64;
 
-/** Compiled schemas for a stored template; cached for immutable (non-draft) versions. */
+/**
+ * Compiled schemas for a stored template; cached for immutable (non-draft) versions. Keyed
+ * by row id, not slug@version: eval and playground scratch databases install their own
+ * copy of a version, possibly from a different upload of the same draft (ADR 0015).
+ */
 export function preparedTemplateFor(
-  row: Pick<TemplateRow, "slug" | "version" | "status" | "manifest">,
+  row: Pick<TemplateRow, "id" | "status" | "manifest">,
 ): PreparedTemplate {
   if (row.status === "draft") return prepareTemplate(row.manifest);
-  const key = `${row.slug}@${row.version}`;
-  let entry = prepared.get(key);
+  let entry = prepared.get(row.id);
   if (!entry) {
     entry = prepareTemplate(row.manifest);
-    prepared.set(key, entry);
+    prepared.set(row.id, entry);
+    if (prepared.size > PREPARED_CACHE_SIZE) {
+      const oldest = prepared.keys().next().value;
+      if (oldest !== undefined) prepared.delete(oldest);
+    }
   }
   return entry;
 }

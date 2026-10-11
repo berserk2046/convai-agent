@@ -1,9 +1,14 @@
 "use server";
 
-import { deprecateTemplate, publishTemplate, uploadTemplate } from "@platform/services";
+import {
+  deprecateTemplate,
+  publishTemplate,
+  requestEvalRun,
+  uploadTemplate,
+} from "@platform/services";
 import type { Issue } from "@platform/templates";
 import { revalidatePath } from "next/cache";
-import { failure } from "../../../lib/actions.ts";
+import { attempt, failure, type ActionState } from "../../../lib/actions.ts";
 import { services } from "../../../lib/server.ts";
 import { requireActor } from "../../../lib/session.ts";
 import { field } from "../../../lib/form-data.ts";
@@ -29,11 +34,38 @@ export async function uploadAction(_state: UploadState, form: FormData): Promise
   }
 }
 
-export async function publishAction(slug: string, version: string): Promise<void> {
+/** Refused with the gate's reason until a live eval run of this upload passes (spec §10). */
+export async function publishAction(
+  slug: string,
+  version: string,
+  _state: ActionState,
+): Promise<ActionState> {
   const actor = await requireActor();
-  await publishTemplate(services(), actor, slug, version);
+  const result = await attempt(() => publishTemplate(services(), actor, slug, version), {
+    lang: "en",
+    ok: "Published.",
+  });
   revalidatePath(`/templates/${slug}/${version}`);
   revalidatePath("/templates");
+  return result;
+}
+
+/** Queues a live eval run (3 per scenario) for the worker (spec §11). */
+export async function runEvalsAction(
+  slug: string,
+  version: string,
+  _state: ActionState,
+): Promise<ActionState> {
+  const actor = await requireActor();
+  const result = await attempt(
+    () => requestEvalRun(services(), actor, slug, version).then(() => undefined),
+    {
+      lang: "en",
+      ok: "Queued. The worker runs it next; this page updates as it goes.",
+    },
+  );
+  revalidatePath(`/templates/${slug}/${version}`);
+  return result;
 }
 
 export async function deprecateAction(slug: string, version: string): Promise<void> {

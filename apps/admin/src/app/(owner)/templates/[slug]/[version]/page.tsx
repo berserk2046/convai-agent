@@ -1,20 +1,28 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { NotFoundError, templateDetail } from "@platform/services";
+import { NotFoundError, templateDetail, type TemplateDetail } from "@platform/services";
+import { AutoRefresh } from "../../../../../components/auto-refresh.tsx";
 import { DiffView, StatusBadge } from "../../../../../components/diff-view.tsx";
+import { EvalRunBadge, dollars, percent } from "../../../../../components/evals.tsx";
 import {
   Alert,
+  Badge,
   Button,
   Card,
   CardContent,
   CardHeader,
+  Empty,
   PageHeader,
+  Table,
+  Td,
+  Th,
 } from "../../../../../components/ui.tsx";
 import { ownerDateTime } from "../../../../../lib/format.ts";
 import { services } from "../../../../../lib/server.ts";
 import { requireOwnerPage } from "../../../../../lib/session.ts";
-import { deprecateAction, publishAction } from "../../actions.ts";
+import { deprecateAction } from "../../actions.ts";
+import { PublishForm, RunEvalsForm } from "./forms.tsx";
 
 export const metadata: Metadata = { title: "Template version" };
 
@@ -36,11 +44,9 @@ export default async function TemplateVersionPage(props: PageProps<"/templates/[
         }
         description={detail.description}
         actions={
-          <div className="flex gap-2">
+          <div className="flex items-start gap-2">
             {detail.status === "draft" ? (
-              <form action={publishAction.bind(null, slug, version)}>
-                <Button>Publish</Button>
-              </form>
+              <PublishForm slug={slug} version={version} blocker={detail.evals.blocker} />
             ) : null}
             {detail.status === "published" ? (
               <form action={deprecateAction.bind(null, slug, version)}>
@@ -58,13 +64,12 @@ export default async function TemplateVersionPage(props: PageProps<"/templates/[
           <Link className="underline" href="/templates">
             All templates
           </Link>
+          {" · "}
+          <Link className="underline" href={`/playground?template=${slug}@${version}`}>
+            Try it in the playground
+          </Link>
         </p>
-        {detail.status === "draft" ? (
-          <Alert variant="warning">
-            The eval gate (critical evals must pass) arrives with M6. Until then, publishing only
-            needs a template that validates.
-          </Alert>
-        ) : null}
+        <EvalsCard detail={detail} />
         {detail.warnings.length > 0 ? (
           <Card>
             <CardHeader title={`Warnings (${String(detail.warnings.length)})`} />
@@ -100,5 +105,93 @@ export default async function TemplateVersionPage(props: PageProps<"/templates/[
         </details>
       </div>
     </>
+  );
+}
+
+function EvalsCard({ detail }: { detail: TemplateDetail }) {
+  const { evals, scenarios } = detail;
+  const critical = scenarios.filter((s) => s.critical).length;
+  const active = evals.active;
+  return (
+    <Card>
+      {active ? <AutoRefresh /> : null}
+      <CardHeader
+        title="Evals"
+        description={`${String(scenarios.length)} scenarios, ${String(critical)} critical. A live run plays each scenario 3 times against Claude in a sandbox; nothing is sent to WhatsApp.`}
+        actions={
+          detail.status === "deprecated" ? null : (
+            <RunEvalsForm slug={detail.slug} version={detail.version} disabled={active !== null} />
+          )
+        }
+      />
+      <CardContent className="grid gap-4">
+        {active ? (
+          <Alert>
+            Eval run {active.status}
+            {active.progress
+              ? `: ${String(active.progress.done)} of ${String(active.progress.total)} scenario runs done.`
+              : ". The worker picks it up within seconds."}
+          </Alert>
+        ) : detail.status !== "draft" ? null : evals.blocker ? (
+          <Alert variant="warning">
+            <strong>Not publishable yet.</strong> {evals.blocker} The gate: every critical scenario
+            passes all 3 runs, and at least 90% of all runs pass.
+          </Alert>
+        ) : (
+          <Alert variant="success">The latest live eval run of this upload passed the gate.</Alert>
+        )}
+      </CardContent>
+      {evals.runs.length === 0 ? (
+        <Empty>No eval runs yet.</Empty>
+      ) : (
+        <Table>
+          <thead>
+            <tr>
+              <Th>Started</Th>
+              <Th>Result</Th>
+              <Th>Pass rate</Th>
+              <Th>Critical</Th>
+              <Th>Cost</Th>
+              <Th />
+            </tr>
+          </thead>
+          <tbody>
+            {evals.runs.map((run) => (
+              <tr key={run.id}>
+                <Td className="text-muted-foreground">
+                  {ownerDateTime(run.createdAt)}
+                  {run.current ? null : (
+                    <Badge variant="outline" className="ml-2">
+                      earlier upload
+                    </Badge>
+                  )}
+                </Td>
+                <Td>
+                  <EvalRunBadge status={run.status} gatePassed={run.gatePassed} />
+                  {run.error ? (
+                    <p className="mt-1 max-w-xs text-xs text-destructive">{run.error}</p>
+                  ) : null}
+                </Td>
+                <Td>{percent(run.passRate)}</Td>
+                <Td>
+                  {run.criticalPass === null ? "—" : run.criticalPass ? "all passed" : "failed"}
+                </Td>
+                <Td>{dollars(run.costUsd)}</Td>
+                <Td>
+                  {run.status === "finished" || run.status === "running" ? (
+                    <Link
+                      className="underline"
+                      href={`/templates/${detail.slug}/${detail.version}/evals/${run.id}`}
+                    >
+                      Report
+                    </Link>
+                  ) : null}
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </Card>
   );
 }

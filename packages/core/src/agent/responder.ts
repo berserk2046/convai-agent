@@ -10,7 +10,6 @@ import {
   withTenant,
 } from "@platform/db";
 import {
-  costUsd,
   isKnownModel,
   isRetryableLlmError,
   meteredLlm,
@@ -279,7 +278,7 @@ async function agentReplies(
     result = await modelTurn(deps, turn, llm, request, enabled, info, fixed);
   } finally {
     // Tokens are paid for even when the turn fails midway (principle 10).
-    await recordSpend(deps, turn, model, llm.usage);
+    await recordSpend(deps, turn, model, llm.usage, llm.costUsd);
   }
   const [first, ...rest] = result.replies;
   if (!first) return [];
@@ -287,7 +286,7 @@ async function agentReplies(
     kind: first.meta?.kind ?? "agent",
     model,
     usage: llm.usage,
-    costUsd: costUsd(model, llm.usage),
+    costUsd: llm.costUsd,
     toolCalls: result.toolCalls,
   };
   return [{ ...first, meta }, ...rest];
@@ -413,11 +412,11 @@ async function recordSpend(
   turn: Turn,
   model: string,
   usage: TokenUsage,
+  cost: number,
 ): Promise<void> {
   const units = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
   if (units === 0) return;
   const { tool } = turn;
-  const cost = costUsd(model, usage);
   await withTenant(tool.db, tool.business.id, (tx) =>
     recordUsage(tx, {
       businessId: tool.business.id,

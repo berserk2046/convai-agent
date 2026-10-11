@@ -1,8 +1,10 @@
 import { createWhatsAppClient } from "@platform/channels";
 import { INBOX_CHANNEL, createChangeFeed, createDb, type ChangeFeed } from "@platform/db";
 import type { ServiceDeps } from "@platform/services";
+import { createAnthropicLlm } from "@platform/llm";
 import {
   adminEnv,
+  agentEnv,
   automationsEnv,
   baseEnv,
   createLogger,
@@ -24,7 +26,8 @@ const envSchema = baseEnv
   .extend(encryptionEnv.shape)
   .extend(metaEnv.pick({ META_GRAPH_VERSION: true, META_GRAPH_BASE_URL: true }).shape)
   .extend(automationsEnv.pick({ MARKETING_MSGS_MONTH: true }).shape)
-  .extend(adminEnv.shape);
+  .extend(adminEnv.shape)
+  .extend(agentEnv.pick({ ANTHROPIC_API_KEY: true }).shape);
 
 // Dev reloads re-evaluate modules; one pool per process, not per reload.
 const holder = globalThis as {
@@ -56,6 +59,11 @@ function instance() {
         now: () => new Date(),
         sessionSecret: env.SESSION_SECRET,
         marketingMsgsMonth: env.MARKETING_MSGS_MONTH,
+        // The playground's scratch databases go on this server (ADR 0016).
+        playground: {
+          databaseUrl: env.DATABASE_URL,
+          llm: env.ANTHROPIC_API_KEY ? createAnthropicLlm({ apiKey: env.ANTHROPIC_API_KEY }) : null,
+        },
       },
     };
   }

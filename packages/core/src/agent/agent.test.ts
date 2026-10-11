@@ -16,6 +16,7 @@ import {
   updateBusinessHolidays,
   withTenant,
 } from "@platform/db";
+import { ODONTOLOGIA_MODEL } from "@platform/db/testing";
 import type { LlmClient } from "@platform/llm";
 import { scriptedLlm, transientLlmError, type ScriptStep } from "@platform/llm/testing";
 import { builtinProvider } from "@platform/scheduling";
@@ -31,7 +32,7 @@ import type { BookingEvent } from "./tools/types.ts";
 
 /** Spec §11: evals run on this clock, a Monday. */
 const NOW = new Date("2026-10-05T09:00:00-05:00");
-const MODEL = "claude-haiku-4-5-20251001";
+const MODEL = ODONTOLOGIA_MODEL;
 
 let h: CoreHarness;
 let events: BookingEvent[];
@@ -202,8 +203,8 @@ describe("answers from the business's facts", () => {
     }>(
       "SELECT input_tokens, cost_usd, payload->>'kind' AS kind FROM messages WHERE direction = 'outbound' AND input_tokens IS NOT NULL",
     );
-    // Two calls of 1000 input + 50 output tokens on Haiku 4.5: 2×(1000×$1 + 50×$5)/1M.
-    expect(rows.rows[0]).toEqual({ input_tokens: 2000, cost_usd: "0.002500", kind: "agent" });
+    // Two calls of 1000 input + 50 output tokens on Haiku 5.5: 2×(1000×$0.10 + 50×$0.50)/1M.
+    expect(rows.rows[0]).toEqual({ input_tokens: 2000, cost_usd: "0.000250", kind: "agent" });
     const usage = await h.testDb.pool.query("SELECT kind, units FROM usage_events");
     expect(usage.rows).toContainEqual({ kind: "llm", units: 2100 });
   });
@@ -215,7 +216,12 @@ describe("answers from the business's facts", () => {
     ]);
     expect(sent).toEqual(["La limpieza dental cuesta $120.000."]);
     expect(llm.requests[1]?.tool_choice).toEqual({ type: "none" });
-    expect(JSON.stringify(llm.requests[1]?.system)).toContain("not catalog prices (100000)");
+    // Haiku 5.5 thinks by default: the note is appended, the earlier request left unchanged.
+    expect(llm.requests[1]?.system).toEqual(llm.requests[0]?.system);
+    expect(llm.requests[1]?.messages.at(-1)).toMatchObject({
+      role: "system",
+      content: expect.stringContaining("not catalog prices (100000)") as unknown,
+    });
   });
 
   it("price guard: hands off when the rewrite still invents a price", async () => {
@@ -575,6 +581,30 @@ describe("confirmation can't be carried over (decision A5)", () => {
       note: expect.stringContaining("hasn't confirmed"),
     });
     expect(await bookingsOf("Sofía Mora")).toEqual([]);
+  });
+
+  it("a party size the template doesn't collect doesn't break the match (eval finding)", async () => {
+    // Haiku 5.5 sometimes adds party_size: 1 when confirming a proposal made without it.
+    const from = "573200000017";
+    const first = await say(from, "Una limpieza el martes a las 10, soy Inés Rojas", [
+      { tools: [book("Inés Rojas", tuesday("10:00"))] },
+      { text: "¿Le agendo la limpieza el martes 13 a las 10:00 a. m.?" },
+    ]);
+    const proposal = toolResult(first.llm, 1);
+    const second = await say(from, "Sí", [
+      {
+        tools: [
+          book("Inés Rojas", tuesday("10:00"), {
+            confirmed_by_customer: true,
+            proposal_id: proposal?.proposal_id,
+            party_size: 1,
+          }),
+        ],
+      },
+      { text: "Listo, quedó agendada." },
+    ]);
+    expect(toolResult(second.llm, 1)).toMatchObject({ status: "booked" });
+    expect(await bookingsOf("Inés Rojas")).toMatchObject([{ partySize: null }]);
   });
 
   it("a proposal from a failed attempt was never shown, so it isn't confirmed by the retry", async () => {

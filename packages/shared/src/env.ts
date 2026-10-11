@@ -67,6 +67,14 @@ export const automationsEnv = z.object({
   MARKETING_MSGS_MONTH: z.coerce.number().int().min(0).default(500),
 });
 
+/** Evals and the playground (spec §11, ADR 0015). */
+export const evalsEnv = z.object({
+  /** How `pnpm template eval <path>` gets the model's answers: recordings or the live API. */
+  EVAL_LLM: z.enum(["live", "replay"]).default("replay"),
+  /** The model that grades `judge` assertions. Must have a price in @platform/llm. */
+  JUDGE_MODEL: z.string().min(1).default("claude-sonnet-5-5"),
+});
+
 /** The admin app (spec §12). */
 export const adminEnv = z.object({
   /** Key for session token HMACs: 32+ random characters. */

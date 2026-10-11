@@ -1,12 +1,13 @@
 /**
  * The end-to-end environment (ADR 0011): its own database on the DATABASE_URL server, a
- * fake Graph API on a fixed port, and fixed test secrets. Shared by the Playwright config,
+ * fake Graph API and a fake Anthropic API on fixed ports, and fixed test secrets. Shared by the Playwright config,
  * the processes it starts, and the tests. No workspace imports: the config loads this.
  */
 
 export const E2E = {
   adminPort: 3101,
   graphPort: 3911,
+  anthropicPort: 3912,
   database: "e2e_admin",
   ownerEmail: "owner@e2e.test",
   ownerPassword: "contraseña-del-dueño-e2e",
@@ -28,6 +29,9 @@ export function e2eEnv(base: Record<string, string | undefined>): Record<string,
     SESSION_SECRET: "e2e-session-secret-with-at-least-32-chars",
     META_GRAPH_VERSION: "v24.0",
     META_GRAPH_BASE_URL: `http://127.0.0.1:${String(E2E.graphPort)}`,
+    // The playground's Claude: a local fake of the Messages API (e2e/fake-anthropic.ts).
+    ANTHROPIC_API_KEY: "sk-ant-e2e-fake-key",
+    ANTHROPIC_BASE_URL: `http://127.0.0.1:${String(E2E.anthropicPort)}`,
     LOG_LEVEL: "warn",
   };
 }

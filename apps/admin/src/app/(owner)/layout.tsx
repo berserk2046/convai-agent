@@ -11,6 +11,7 @@ export default async function OwnerLayout({ children }: { children: ReactNode })
       nav={[
         { href: "/businesses", label: "Businesses" },
         { href: "/templates", label: "Templates" },
+        { href: "/playground", label: "Playground" },
         { href: "/usage", label: "Usage" },
       ]}
       user={<span>{actor.email}</span>}

@@ -56,4 +56,9 @@ describe("loadWorkerConfig", () => {
     expect(() => loadWorkerConfig({ ...production, INBOUND_HANDLER: "echo" })).toThrow(ConfigError);
     expect(loadWorkerConfig({ ...env, INBOUND_HANDLER: "echo" }).INBOUND_HANDLER).toBe("echo");
   });
+
+  it("grades evals with a priced judge model", () => {
+    expect(loadWorkerConfig(env).JUDGE_MODEL).toBe("claude-sonnet-5-5");
+    expect(() => loadWorkerConfig({ ...env, JUDGE_MODEL: "gpt-x" })).toThrow(/JUDGE_MODEL/);
+  });
 });

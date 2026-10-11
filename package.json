@@ -16,7 +16,7 @@
     "db:migrate": "pnpm --filter @platform/db migrate",
     "db:generate": "pnpm --filter @platform/db generate",
     "db:new": "pnpm --filter @platform/db new",
-    "template": "node packages/templates/src/cli/main.ts",
+    "template": "node --env-file-if-exists=.env packages/services/src/cli/template.ts",
     "dev:setup": "pnpm --filter @platform/db dev-setup",
     "dev:api": "pnpm --filter @platform/api dev",
     "dev:worker": "pnpm --filter @platform/worker dev",

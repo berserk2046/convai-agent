@@ -4,7 +4,7 @@ import { parseEnv } from "node:util";
 import { E2E, e2eEnv } from "./e2e/env.ts";
 
 /**
- * The M5 smoke test (ADR 0011). Playwright starts a fake Graph API and the built admin
+ * The admin smoke test (ADR 0011). Playwright starts fake Graph and Anthropic APIs and the built admin
  * (`next start`, after `next build` in `test:e2e`) on a fresh e2e database. The tests run
  * in one worker: they walk one business through setup, the agent, and the inbox.
  */
@@ -39,6 +39,12 @@ export default defineConfig({
       name: "graph",
       command: "node e2e/fake-graph.ts",
       url: `${process.env.META_GRAPH_BASE_URL ?? ""}/__requests`,
+      reuseExistingServer: false,
+    },
+    {
+      name: "anthropic",
+      command: "node e2e/fake-anthropic.ts",
+      url: `${process.env.ANTHROPIC_BASE_URL ?? ""}/__requests`,
       reuseExistingServer: false,
     },
     {

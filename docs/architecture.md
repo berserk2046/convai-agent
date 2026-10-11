@@ -34,8 +34,8 @@ Resolutions of ambiguous points are in `docs/spec-review.md` and `docs/decisions
 | `automations` | Triggers, conditions, actions, idempotent runs, button mapping            |
 | `channels`    | WhatsApp Cloud client, webhook parsing, 24-hour window logic              |
 | `llm`         | Anthropic client wrapper, prompt caching, token and cost accounting       |
-| `evals`       | Scenario runner, mock clock, mock channel, record/replay LLM              |
-| `services`    | Admin use cases: auth, roles, audit, every screen's reads and writes      |
+| `evals`       | Sandboxes, scenario runner, assertions, judge, record/replay, eval worker |
+| `services`    | Admin use cases (auth, roles, audit, every screen) and the template CLI   |
 
 ## Inbound message path
 
@@ -178,19 +178,33 @@ Implementation details are in `docs/decisions/0010-automations-engine.md`:
   `expect_tool:`), and `assert`.
 - **Assertions:** `tool_called`, `no_tool`, `booking_created`, `bookings_count`, `handoff`,
   `no_handoff`, `reply_contains`, `reply_not_matches`, `reply_contains_price`, `judge`
-  (Sonnet).
-- **Runtime:** the real agent runtime and tools, a mock clock (default
-  `2026-10-05T09:00:00-05:00`), a mock channel and a throwaway database. LLM calls run live
-  or through record/replay.
-- **Nightly live runs:** 3 runs per scenario; a critical scenario must pass all 3. CI runs
-  replay mode on every PR.
-- **Playground:** chat with any template from the admin, showing tool calls, tokens and
-  cost.
+  (Sonnet, structured output). Their exact semantics are in `docs/templates.md`.
+- **Runtime (ADR 0015):** one scratch Postgres database per run, with a sandbox business
+  per scenario run.
+  - The real webhook ingest, inbound pipeline, agent and tools run unchanged. The fakes
+    are a capturing WhatsApp client, a mock clock (default `2026-10-05T09:00:00-05:00`, one
+    minute per message) and a sink for booking events (automations don't run).
+  - API failures and stale recordings are reported as errors, not as the agent's
+    behavior.
+- **Record/replay:** responses are filed under a hash of the request, with UUIDs
+  normalized. Any prompt or tool change invalidates them. Recordings live in
+  `templates/<slug>/eval-recordings.json`.
+- **Where runs happen:**
+  - The admin queues a live run (3 per scenario) and the worker runs it.
+  - `pnpm template eval` runs in place (replay or live).
+  - CI replays on every PR and runs live nightly.
+- **Publish gate:** the latest finished live run of the current upload must pass every
+  critical run and at least 90% of all runs.
+- **Playground (ADR 0016):** the owner chats with any template version, using its
+  `sample_config` or a business's config, resources and closures.
+  - Each session has its own scratch database, and the admin runs turns as server actions.
+  - Every turn shows its tool calls, tokens and cost. Nothing reaches WhatsApp, and the
+    business's bookings and contacts are never copied.
 
 ## Admin app
 
-- **Platform owner:** `/templates`, `/businesses` (create, upgrade, channel, activation,
-  impersonate), `/playground`, `/usage`.
+- **Platform owner:** `/templates` (with eval runs and reports), `/businesses` (create,
+  upgrade, channel, activation, impersonate), `/playground`, `/usage`.
 - **Business admin:** `/setup` (RJSF form from `config_schema`, resources, closures,
   consent), `/automations`, `/inbox`, `/bookings`, `/reports`.
 - **Business staff:** `/inbox` and `/bookings`.
@@ -207,7 +221,11 @@ Implementation details are in `docs/decisions/0010-automations-engine.md`:
     with the business id when anything the inbox shows changes. The admin forwards it to
     that business's open tabs as server-sent events, and the tabs re-render.
   - The look (tokens, shared components) and where to change it: `docs/admin-ui.md`.
-  - The playground arrives with the evals in M6.
+- **Evals and playground (M6):**
+  - The template version page shows its eval runs, the gate and a **Run evals** button,
+    and publishing waits for the gate.
+  - Each run has a report with transcripts, tool calls and assertion results.
+  - `/playground` is the chat simulator.
 - **Cost (ADR 0012):** AI spend comes from the LLM usage events. WhatsApp spend is recorded
   when a message's status webhook reports it delivered and billable, at Meta's list rate for
   Colombia. `/usage` and `/reports` add both up.

@@ -11,3 +11,4 @@ export * from "./businesses.ts";
 export * from "./messaging.ts";
 export * from "./scheduling.ts";
 export * from "./vertical-templates.ts";
+export * from "./evals.ts";

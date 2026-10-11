@@ -3,16 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { NotFoundError, getConversationView, type ThreadMessage } from "@platform/services";
+import { ChatBubble } from "../../../../components/chat.tsx";
 import { LiveRefresh } from "../../../../components/live-refresh.tsx";
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  cn,
-} from "../../../../components/ui.tsx";
+import { Alert, Badge, Button, Card, CardContent, CardHeader } from "../../../../components/ui.tsx";
 import { shortDateTime } from "../../../../lib/format.ts";
 import { isUuid } from "../../../../lib/ids.ts";
 import { services } from "../../../../lib/server.ts";
@@ -210,26 +203,21 @@ const AUTHOR: Record<ThreadMessage["author"], string> = {
 function Bubble({ message, zone }: { message: ThreadMessage; zone: string }) {
   const inbound = message.direction === "inbound";
   return (
-    <li
-      className={cn("grid max-w-[80%] gap-1", inbound ? "justify-self-start" : "justify-self-end")}
+    <ChatBubble
+      side={inbound ? "in" : "out"}
+      failed={message.status === "failed"}
+      meta={
+        <>
+          {message.author === "staff" && message.staffName
+            ? message.staffName
+            : AUTHOR[message.author]}{" "}
+          · {shortDateTime(message.at, zone)}
+          {inbound ? "" : ` · ${STATUS[message.status] ?? message.status}`}
+        </>
+      }
     >
-      <span className={cn("text-xs text-muted-foreground", inbound ? "" : "text-right")}>
-        {message.author === "staff" && message.staffName
-          ? message.staffName
-          : AUTHOR[message.author]}{" "}
-        · {shortDateTime(message.at, zone)}
-        {inbound ? "" : ` · ${STATUS[message.status] ?? message.status}`}
-      </span>
-      <p
-        className={cn(
-          "rounded-lg px-3 py-2 text-sm whitespace-pre-wrap",
-          inbound ? "rounded-tl-none bg-message-in" : "rounded-tr-none bg-message-out",
-          message.status === "failed" ? "ring-1 ring-destructive" : "",
-        )}
-      >
-        {message.body}
-      </p>
-    </li>
+      {message.body}
+    </ChatBubble>
   );
 }
 

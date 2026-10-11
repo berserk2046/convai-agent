@@ -273,8 +273,12 @@ pins the version and saves the config together. Audited as `business.upgrade`.
 
 32. `reply_contains` and `reply_contains_price` check the outbound messages of the last user
     turn. `reply_not_matches` checks every outbound message in the scenario.
+    **Implemented (M6, ADR 0015).** All the assertion semantics are in `docs/templates.md`.
 33. The publish gate requires a live eval run (3× per scenario). Replay recordings are for
     CI only, and any prompt or tool change invalidates them.
+    **Implemented (M6, ADR 0015):**
+    - Responses are filed under a hash of the request, with UUIDs normalized.
+    - The gate reads the latest live run of the version's current upload.
 34. Retention also strips message text from `messages.payload`/`tool_calls` and purges
     `handoffs.summary`. Any one of these alone would leak what we purge from `body`.
 35. M2, M3 and M7 acceptance need your Meta test-number credentials and an Anthropic API
@@ -306,3 +310,12 @@ pins the version and saves the config together. Audited as `business.upgrade`.
 - The channel is whatever M4/M5 builds for staff alerts (A15).
 - **Built (M4, ADR 0010):** one staff notification a month at 90%, and one at the cap
   itself, for AI spend and for marketing messages.
+
+**C4. The agent model (2026-10-10).**
+
+- The owner chose Claude Haiku 5.5 over spec §4's Haiku 4.5, because it costs about a
+  tenth per token.
+- `odontologia@1.2.0` runs on it.
+- The code handles its API differences (thinking by default, append-only retries, per-request
+  pricing).
+- ADR 0017 has the details.

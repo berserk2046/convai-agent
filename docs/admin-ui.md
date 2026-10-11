@@ -5,16 +5,16 @@ changes are made once and every screen follows.
 
 ## Where to change what
 
-| To change…                                                                       | Edit                                                                                          |
-| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Colors, corner radius, font                                                      | the `@theme` tokens in `apps/admin/src/app/globals.css`                                       |
-| Page background                                                                  | `body` in `globals.css`                                                                       |
-| Buttons, fields, cards, badges, alerts, tables, page titles                      | `apps/admin/src/components/ui.tsx` (one recipe per piece)                                     |
-| Header, navigation, page width (`max-w-6xl`)                                     | `apps/admin/src/components/shell.tsx` and `nav-link.tsx`                                      |
-| The generated setup form (`/setup`)                                              | the `.rjsf` rules in `globals.css`                                                            |
-| Message bubbles in a conversation                                                | the `--color-message-*` tokens; the shape is `Bubble` in `app/(business)/inbox/[id]/page.tsx` |
-| The bookings calendar: scale (pixels per minute), booking chip colors per status | `PX_PER_MINUTE` and `STATUS_STYLE` in `app/(business)/bookings/calendar.tsx`                  |
-| The template diff on `/templates`                                                | `apps/admin/src/components/diff-view.tsx`                                                     |
+| To change…                                                                       | Edit                                                                                              |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Colors, corner radius, font                                                      | the `@theme` tokens in `apps/admin/src/app/globals.css`                                           |
+| Page background                                                                  | `body` in `globals.css`                                                                           |
+| Buttons, fields, cards, badges, alerts, tables, page titles                      | `apps/admin/src/components/ui.tsx` (one recipe per piece)                                         |
+| Header, navigation, page width (`max-w-6xl`)                                     | `apps/admin/src/components/shell.tsx` and `nav-link.tsx`                                          |
+| The generated setup form (`/setup`)                                              | the `.rjsf` rules in `globals.css`                                                                |
+| Message bubbles in a conversation (inbox, eval reports, playground)              | the `--color-message-*` tokens; the shape is `ChatBubble` in `apps/admin/src/components/chat.tsx` |
+| The bookings calendar: scale (pixels per minute), booking chip colors per status | `PX_PER_MINUTE` and `STATUS_STYLE` in `app/(business)/bookings/calendar.tsx`                      |
+| The template diff on `/templates`                                                | `apps/admin/src/components/diff-view.tsx`                                                         |
 
 ### Tokens
 

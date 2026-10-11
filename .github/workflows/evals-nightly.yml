@@ -1,0 +1,66 @@
+name: Evals (live, nightly)
+
+# Spec §11: every template's evals against the real model, 3 runs per scenario; a critical
+# scenario must pass all 3. Needs the ANTHROPIC_API_KEY repository secret, and spends real
+# money (about $0.10 per run for odontologia on Haiku 5.5; see ADR 0015 and ADR 0017).
+
+on:
+  schedule:
+    - cron: "0 8 * * *" # 03:00 in Bogotá
+  workflow_dispatch:
+
+concurrency:
+  group: evals-nightly
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: platform
+          POSTGRES_PASSWORD: platform
+          POSTGRES_DB: platform
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U platform -d platform"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+
+    env:
+      NODE_ENV: test
+      # Evals create scratch databases on this server; nothing else is stored.
+      DATABASE_URL: postgres://platform:platform@127.0.0.1:5432/platform
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      JUDGE_MODEL: claude-sonnet-5-5
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Evals (live)
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::warning::The ANTHROPIC_API_KEY secret isn't set; live evals skipped."
+            exit 0
+          fi
+          status=0
+          for dir in templates/*/; do
+            name=$(basename "$dir")
+            pnpm template eval "$dir" --live --json "eval-report-${name}.json" || status=1
+          done
+          exit $status
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-reports
+          path: eval-report-*.json
+          if-no-files-found: ignore
+          retention-days: 30

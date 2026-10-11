@@ -7,6 +7,10 @@ number.
 > This sends real WhatsApp messages to the numbers you add as test recipients (your own
 > phone). Nothing is sent anywhere else.
 
+To try the agent without WhatsApp at all, use the admin's **Playground** (ADR 0016). It
+needs only `ANTHROPIC_API_KEY`: start a chat with the dental template, and every turn shows
+its tool calls, tokens and cost.
+
 ## 1. Collect the values from Meta
 
 In the Meta App Dashboard, open your app and go to **WhatsApp → API Setup**. Note:
@@ -47,7 +51,7 @@ address.
 ```sh
 docker compose up -d
 pnpm db:migrate
-pnpm dev:setup      # publishes odontologia locally, creates the demo business, connects the number
+pnpm dev:setup      # publishes odontologia locally (skipping the eval gate), creates the demo business, connects the number
 pnpm dev:api        # terminal 1
 pnpm dev:worker     # terminal 2
 ```
