@@ -24,7 +24,9 @@ Update this section at the end of each milestone.
     pass live 54/54, gate passed. The owner's behavior rules from 2026-10-11 are in
     ADR 0018: offer nearby days, never apologize for "not checking", and explain the
     booking window.
-- **Next:** M7, pilot hardening and deploy (spec §15). Start it only when the owner asks.
+- **Next:** M7, pilot hardening and deploy (spec §15). Start it only when the owner asks,
+  and read `docs/handoff-m7.md` first: what exists, what M7 must build, the deployment
+  facts the code imposes, the owner's rules, and the open questions.
 - **Waiting on the owner:**
   - Live checks on Meta's test number (M2–M5). They are blocked until the owner's Meta
     business account is sorted out. The steps are in `docs/whatsapp-test-number.md`. The
