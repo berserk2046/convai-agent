@@ -182,6 +182,7 @@ agent:
     - Usa SOLO los datos del consultorio que aparecen abajo y los resultados de tus herramientas.
     - Nunca inventes precios, servicios, horarios, promociones, convenios ni nombres de doctores.
     - Precio "fijo": dilo tal cual. Precio "desde": di "desde $X". Precio "tras valoración": explica que se define en la cita de valoración y ofrece agendarla. En esa respuesta no escribas ninguna cifra, ni siquiera el precio de la valoración; dalo solo si el paciente lo pregunta.
+    - Tus respuestas anteriores en esta conversación se basaron en consultas reales al sistema. Nunca digas que respondiste sin revisar, ni te corrijas o disculpes por eso. Si necesitas un dato nuevo, consúltalo y responde directamente.
     - Si te preguntan algo que no está en los datos, dilo con honestidad y usa handoff con motivo "desconocido" de una vez, sin preguntar si quiere que lo comuniquen.
 
     TEMAS CLÍNICOS
@@ -193,6 +194,8 @@ agent:
 
     CITAS
     - Antes de ofrecer horarios llama check_availability. Ofrece como máximo {{ booking.slots_to_offer }} opciones.
+    - Si no hay cupo en el día o la franja que pidió, dilo y en el mismo mensaje ofrece 2 o 3 de los días cercanos que te devuelve check_availability (nearby_days), en la misma franja. No preguntes si quiere que busques otros días.
+    - Solo se agenda hasta {{ booking.max_days_ahead }} días adelante. Si pide una fecha más lejana, llama check_availability con esa misma fecha: te devuelve el último día del plazo y los días disponibles más cercanos a la fecha pedida (nearby_days). Explícale el plazo y ofrécele esos días; nunca digas que esa fecha está llena.
     - Para agendar necesitas: servicio, horario elegido y nombre completo de quien asiste (si es para otra persona, el nombre de esa persona; si es menor de edad, también el nombre del acudiente).
     - En cuanto tengas servicio, horario y nombre, llama book con confirmed_by_customer=false: te devuelve una propuesta. Repite al paciente servicio, fecha, hora y precio de esa propuesta y espera un "sí" explícito. Cuando lo dé, llama book con confirmed_by_customer=true y el proposal_id.
     - Para mover o cancelar, primero llama find_bookings y confirma cuál cita es. reschedule y cancel funcionan igual que book: primero con confirmed_by_customer=false, y después del "sí", con true.
@@ -567,3 +570,35 @@ evals:
     assert:
       reply_contains: ["limpieza"]
       bookings_count: 0
+  - id: sin_cupo_ofrece_otros_dias
+    critical: true
+    clock: "2026-10-05T09:00:00-05:00"
+    turns:
+      - user: "Quiero una limpieza el domingo en la mañana"
+    assert:
+      tool_called: check_availability
+      reply_contains: ["sábado"]
+      judge: "The reply makes clear that Sunday morning can't be booked (for example, because the clinic is closed on Sundays) and, in the same message and without first asking whether to look for other days, offers two or three specific nearby days with morning times."
+  - id: no_se_autocorrige
+    critical: true
+    clock: "2026-10-05T09:00:00-05:00"
+    turns:
+      - user: "Quiero una limpieza el domingo en la mañana"
+      - user: "¿Y el domingo en la tarde?"
+    assert:
+      tool_called: check_availability
+      reply_not_matches:
+        [
+          "sin (haberlo |haber )?(revisad|consultad)",
+          "le debo una (correcci[oó]n|aclaraci[oó]n)",
+          "no (lo )?hab[ií]a (revisado|consultado)",
+          "no era cierto",
+        ]
+  - id: fecha_fuera_de_plazo
+    critical: false
+    clock: "2026-10-05T09:00:00-05:00"
+    turns:
+      - user: "¿Tienen cita para limpieza el 15 de diciembre?"
+    assert:
+      tool_called: check_availability
+      judge: "The reply explains that appointments can only be booked a limited time ahead (it does not say the date is fully booked) and offers specific dates near the end of that period."

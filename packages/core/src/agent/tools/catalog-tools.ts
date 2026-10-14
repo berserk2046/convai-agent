@@ -1,4 +1,13 @@
-import { chooseSlots } from "@platform/scheduling";
+import {
+  chooseSlots,
+  nearbyDays,
+  timeOfDayAt,
+  toMinutes,
+  type NearbyDay,
+  type TimeOfDay,
+} from "@platform/scheduling";
+import { formatDayLabel } from "@platform/shared";
+import { DateTime } from "luxon";
 import { z } from "zod";
 import {
   catalogAt,
@@ -8,8 +17,14 @@ import {
   searchCatalog,
   slotView,
 } from "./catalog.ts";
-import { closedHolidays, durationOf, effectiveRules, searchSlots } from "./slots.ts";
-import { toolError, type AgentTool } from "./types.ts";
+import {
+  closedHolidays,
+  durationOf,
+  effectiveRules,
+  searchSlots,
+  type SlotSearch,
+} from "./slots.ts";
+import { toolError, type AgentTool, type ToolContext } from "./types.ts";
 
 const isoDate = z.iso
   .date()
@@ -45,7 +60,9 @@ export const checkAvailability: AgentTool = {
     "Find free appointment times for a service between two local dates (inclusive). Always call this " +
     "before offering times. Returns a few well-spread options. If the customer asks for a specific time, " +
     "pass `around_time`: the result says whether exactly that time is free (`exact`) and lists the " +
-    "nearest alternatives.",
+    "nearest alternatives. When nothing is free on the asked dates, `nearby_days` lists the closest days " +
+    "that have free times in the same part of the day. `booking_window` appears when the dates are later " +
+    "than bookings open.",
   input: () =>
     z.strictObject({
       service_key: z.string().describe("Catalog key of the service"),
@@ -82,21 +99,23 @@ export const checkAvailability: AgentTool = {
     if (durationMin === null)
       return toolError("no_duration", "This service has no duration configured.");
 
-    const candidates = await searchSlots(ctx, {
-      item,
-      rules,
-      durationMin,
-      dateFrom: String(input.date_from),
-      dateTo: String(input.date_to),
-      timeOfDay: input.time_of_day as "morning" | "afternoon" | "evening" | undefined,
-      partySize: typeof input.party_size === "number" ? input.party_size : undefined,
-    });
+    const timeOfDay = input.time_of_day as TimeOfDay | undefined;
+    const partySize = typeof input.party_size === "number" ? input.party_size : undefined;
+    const search = { item, rules, durationMin, timeOfDay, partySize };
+    const dateFrom = String(input.date_from);
+    const dateTo = String(input.date_to);
+    const candidates = await searchSlots(ctx, { ...search, dateFrom, dateTo });
     const around = typeof input.around_time === "string" ? input.around_time : undefined;
     const offer = chooseSlots(candidates, rules.slotsToOffer, around);
-    const holidays = closedHolidays(ctx, String(input.date_from), String(input.date_to));
+    const holidays = closedHolidays(ctx, dateFrom, dateTo);
     const exact = offer.exact
       ? candidates.find((c) => c.day === offer.exact?.day && c.minute === offer.exact.minute)
       : undefined;
+    const window = bookingWindow(ctx, rules.maxDaysAhead);
+    const nearby =
+      offer.slots.length === 0
+        ? await nearbyFree(ctx, search, { dateFrom, dateTo, around, window })
+        : [];
     return {
       result: {
         service: { key: item.key, name: item.name, duration_min: durationMin },
@@ -119,10 +138,95 @@ export const checkAvailability: AgentTool = {
               })),
             }
           : {}),
-        ...(offer.slots.length === 0
-          ? { note: "Nothing free in that range. Try other dates or times." }
+        ...(dateTo > window.last
+          ? {
+              booking_window: {
+                last_date: window.last,
+                last_label: dayLabel(window.last, ctx.timezone),
+                note:
+                  `Appointments can only be booked up to ${String(rules.maxDaysAhead)} days ahead. ` +
+                  "Later dates are not open yet; they are not full. Say so plainly.",
+              },
+            }
           : {}),
+        ...(offer.slots.length === 0 ? emptyResult(nearby, ctx.timezone) : {}),
       },
     };
   },
 };
+
+// --- when the asked dates have nothing free (owner, 2026-10-11) -----------------------------
+
+/** How many of the closest days with free times to offer, and how many times on each. */
+const NEARBY_DAYS = 3;
+const NEARBY_TIMES_PER_DAY = 2;
+/** How far around the asked dates to look. */
+const NEARBY_DAYS_BEFORE = 7;
+const NEARBY_DAYS_AFTER = 14;
+
+interface Window {
+  first: string;
+  last: string;
+}
+
+/** Local dates from today to the last one `max_days_ahead` allows. */
+function bookingWindow(ctx: ToolContext, maxDaysAhead: number): Window {
+  const today = DateTime.fromJSDate(ctx.now, { zone: ctx.timezone }).startOf("day");
+  return {
+    first: today.toISODate() ?? "",
+    last: today.plus({ days: maxDaysAhead }).toISODate() ?? "",
+  };
+}
+
+/**
+ * The closest days around the asked dates (inside the booking window) with free times in
+ * the same part of the day: the one asked for, or the one `around_time` falls in.
+ */
+async function nearbyFree(
+  ctx: ToolContext,
+  search: Omit<SlotSearch, "dateFrom" | "dateTo">,
+  asked: { dateFrom: string; dateTo: string; around: string | undefined; window: Window },
+): Promise<NearbyDay[]> {
+  const { window } = asked;
+  const clamp = (date: string) =>
+    date < window.first ? window.first : date > window.last ? window.last : date;
+  const shift = (date: string, days: number) =>
+    DateTime.fromISO(date, { zone: ctx.timezone }).plus({ days }).toISODate() ?? date;
+  const from =
+    [window.first, shift(clamp(asked.dateFrom), -NEARBY_DAYS_BEFORE)].sort().at(-1) ?? window.first;
+  const to = [window.last, shift(clamp(asked.dateTo), NEARBY_DAYS_AFTER)].sort()[0] ?? window.last;
+  if (from > to) return [];
+  const timeOfDay =
+    search.timeOfDay ??
+    (asked.around === undefined ? undefined : timeOfDayAt(toMinutes(asked.around)));
+  const candidates = await searchSlots(ctx, { ...search, timeOfDay, dateFrom: from, dateTo: to });
+  return nearbyDays(candidates, {
+    from: asked.dateFrom,
+    to: asked.dateTo,
+    days: NEARBY_DAYS,
+    perDay: NEARBY_TIMES_PER_DAY,
+    ...(asked.around === undefined ? {} : { aroundTime: asked.around }),
+  });
+}
+
+function emptyResult(nearby: readonly NearbyDay[], timezone: string): Record<string, unknown> {
+  if (nearby.length === 0) {
+    return {
+      note: "Nothing free on the asked dates or the days around them. Ask for other dates, or offer a person (handoff).",
+    };
+  }
+  return {
+    note:
+      "Nothing free on the asked dates. nearby_days are the closest days with free times in the same part " +
+      "of the day: offer two or three of them in this same reply, without asking first.",
+    nearby_days: nearby.map((d) => ({
+      date: d.day,
+      label: dayLabel(d.day, timezone),
+      times: d.slots.map((c) => slotView(c.start, timezone)),
+    })),
+  };
+}
+
+function dayLabel(date: string, timezone: string): string {
+  return formatDayLabel(DateTime.fromISO(date, { zone: timezone }));
+}

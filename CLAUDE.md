@@ -20,14 +20,16 @@ Update this section at the end of each milestone.
     databases with record/replay and a Sonnet judge, the publish gate, eval reports and
     **Run evals** in the admin, `/playground`, `pnpm template eval|push|publish`, CI replay
     and the nightly live workflow.
-  - The dental template is `1.2.0` on Claude Haiku 5.5 (ADR 0017). Its live evals pass
-    45/45, gate passed.
+  - The dental template is `1.2.0` on Claude Haiku 5.5 (ADR 0017). Its 18 scenarios
+    pass live 54/54, gate passed. The owner's behavior rules from 2026-10-11 are in
+    ADR 0018: offer nearby days, never apologize for "not checking", and explain the
+    booking window.
 - **Next:** M7, pilot hardening and deploy (spec §15). Start it only when the owner asks.
 - **Waiting on the owner:**
   - Live checks on Meta's test number (M2–M5). They are blocked until the owner's Meta
     business account is sorted out. The steps are in `docs/whatsapp-test-number.md`. The
     Anthropic key exists since 2026-10-10.
-  - The `ANTHROPIC_API_KEY` repository secret, for the nightly live evals (about $0.045 a
+  - The `ANTHROPIC_API_KEY` repository secret, for the nightly live evals (about $0.065 a
     run). The live evals themselves ran on 2026-10-10 (ADR 0017).
   - Submitting the message templates to Meta (`META_TEMPLATE_SUBMISSION`). Ask again once
     the Meta account works.
@@ -40,8 +42,8 @@ Update this section at the end of each milestone.
   `playground_sessions`). The dental template is at 1.2.0; a local business on an older
   version moves with the owner's upgrade screen.
 - **Spending (owner's rule, 2026-10-10):**
-  - The Anthropic account had $5 of credit. About $4.85 was left after the M6 live checks
-    ($0.148 spent), and part of it is kept for M7.
+  - The Anthropic account had $5 of credit. $0.294 was spent by 2026-10-11 (about $4.71
+    left), and part of it is kept for M7.
   - Paid runs (anything that calls the Claude API for money) need the owner's explicit OK
     first. Free runs (tests with fakes, replays, token counting) don't.
   - Before each run, give its estimated cost; after it, report what it used.

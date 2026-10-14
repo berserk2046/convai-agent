@@ -129,6 +129,14 @@ What the model passes in (prompts can refer to these names):
     then says whether that exact time is free, plus the nearest alternatives.
   - Public holidays the business doesn't open on never have slots. The result lists them
     under `closed_holidays`.
+  - When nothing is free on the asked dates, `nearby_days` lists up to 3 of the closest
+    days that have free times, each with up to 2 times. The times are in the same part of
+    the day as the request: its `time_of_day`, or the one `around_time` falls in. Prompts
+    can tell the model to offer them right away.
+  - Dates later than `max_days_ahead` allows come back with `booking_window`
+    (`last_date`, `last_label`). Those dates aren't open yet; they aren't full.
+  - Every turn, the model sees the tool calls of its earlier turns, with their results
+    (ADR 0018).
 - `book`: `service_key`, `starts_at` (as returned by `check_availability`), `subject_name`,
   `for_self`, optional `party_size` and `notes`, `confirmed_by_customer`, `proposal_id`.
   - `for_self` is true when the person writing will attend. Only then does

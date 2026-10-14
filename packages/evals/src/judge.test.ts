@@ -28,6 +28,13 @@ describe("judge", () => {
     // Sonnet 5.5 rejects forced tool_choice: the verdict comes as structured output.
     expect(request?.tool_choice).toBeUndefined();
     expect(request?.output_config?.format?.type).toBe("json_schema");
+    // The reasoning comes before the verdict, so the verdict can't contradict it.
+    const schema = request?.output_config?.format?.schema as {
+      properties: object;
+      required: string[];
+    };
+    expect(Object.keys(schema.properties)).toEqual(["reason", "pass"]);
+    expect(schema.required).toEqual(["reason", "pass"]);
     // A rubric check is a classification: low effort on a model that thinks by default.
     expect(request?.output_config?.effort).toBe("low");
     const content = request?.messages[0]?.content;

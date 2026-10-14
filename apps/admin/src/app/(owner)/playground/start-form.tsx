@@ -26,7 +26,7 @@ export function StartForm({
   return (
     <form action={action} className="grid gap-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Template version">
+        <Field label="Template version" hint="The version's agent model answers the chat.">
           <Select
             name="template"
             value={template}
@@ -37,7 +37,7 @@ export function StartForm({
           >
             {options.templates.map((t) => (
               <option key={`${t.slug}@${t.version}`} value={`${t.slug}@${t.version}`}>
-                {t.name} {t.version} ({t.status})
+                {t.name} {t.version} ({t.status}) · {t.model}
               </option>
             ))}
           </Select>

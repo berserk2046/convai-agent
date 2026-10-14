@@ -74,3 +74,42 @@ function chooseAround(candidates: readonly Candidate[], count: number, minute: n
     exact: { day: exactMatch?.day ?? firstDay, minute, available: exactMatch !== undefined },
   };
 }
+
+export interface NearbyDay {
+  /** Local "YYYY-MM-DD". */
+  day: string;
+  slots: Candidate[];
+}
+
+/**
+ * When the asked dates have nothing free (owner, 2026-10-11): the days closest to them that
+ * do, so the agent can offer them right away. Candidates should already be filtered to the
+ * same part of the day. Days inside [from, to] are skipped; the closest come first (ties:
+ * the earlier day), each with up to `perDay` times (nearest to `aroundTime` when given,
+ * otherwise spread through the day).
+ */
+export function nearbyDays(
+  candidates: readonly Candidate[],
+  options: { from: string; to: string; days: number; perDay: number; aroundTime?: string },
+): NearbyDay[] {
+  const byDay = new Map<string, Candidate[]>();
+  for (const c of candidates) {
+    if (c.day >= options.from && c.day <= options.to) continue;
+    byDay.set(c.day, [...(byDay.get(c.day) ?? []), c]);
+  }
+  const distance = (day: string) =>
+    day < options.from ? daysBetween(day, options.from) : daysBetween(options.to, day);
+  return [...byDay.keys()]
+    .sort((a, b) => distance(a) - distance(b) || (a < b ? -1 : 1))
+    .slice(0, options.days)
+    .sort()
+    .map((day) => ({
+      day,
+      slots: chooseSlots(byDay.get(day) ?? [], options.perDay, options.aroundTime).slots,
+    }));
+}
+
+/** Whole days from one local "YYYY-MM-DD" to a later one. */
+function daysBetween(earlier: string, later: string): number {
+  return Math.round((Date.parse(later) - Date.parse(earlier)) / 86_400_000);
+}

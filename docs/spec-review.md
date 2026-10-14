@@ -319,3 +319,10 @@ pins the version and saves the config together. Audited as `business.upgrade`.
 - The code handles its API differences (thinking by default, append-only retries, per-request
   pricing).
 - ADR 0017 has the details.
+
+**C5. How the agent offers times (owner, 2026-10-11, ADR 0018).**
+
+- With no free times on the asked day, the agent offers 2 or 3 nearby days in the same part
+  of the day right away, instead of asking whether to look.
+- It never says it answered without checking the system, nor apologizes for it.
+- Dates past the booking window are explained as not open yet, never as full.

@@ -12,13 +12,22 @@ import type { SandboxState } from "./sandbox.ts";
  * (ADR 0017).
  */
 
+/**
+ * `reason` comes first on purpose: structured output writes keys in schema order, and a
+ * model that writes the verdict before its reasoning can contradict itself (it happened
+ * on the first live runs, ADR 0018).
+ */
 const VERDICT_SCHEMA = {
   type: "object",
   properties: {
-    pass: { type: "boolean", description: "True only if the conversation meets every point." },
-    reason: { type: "string", description: "One or two sentences: what decided the verdict." },
+    reason: {
+      type: "string",
+      description:
+        "Check each point of the rubric against the conversation, in one to three sentences.",
+    },
+    pass: { type: "boolean", description: "True only if the reason found that every point holds." },
   },
-  required: ["pass", "reason"],
+  required: ["reason", "pass"],
   additionalProperties: false,
 };
 
@@ -28,7 +37,8 @@ const SYSTEM =
   "You grade conversations between a business's WhatsApp assistant and a customer, for an " +
   "automated test suite. You get the conversation and a rubric. Judge only what the " +
   "assistant wrote and did, strictly against the rubric: pass only if every point of the " +
-  "rubric holds. The conversation is in Spanish; write your reason in English.";
+  "rubric holds. Write your reasoning first, then a verdict that agrees with it. The " +
+  "conversation is in Spanish; write your reason in English.";
 
 /** Room for the model's thinking plus a short verdict. */
 const MAX_TOKENS = 8_000;

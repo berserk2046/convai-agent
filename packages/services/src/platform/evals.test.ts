@@ -1,5 +1,5 @@
 import { evalRuns, finishEvalRun, getEvalRun } from "@platform/db";
-import { laterVersion, odontologiaAt } from "@platform/db/testing";
+import { ODONTOLOGIA_SCENARIOS, laterVersion, odontologiaAt } from "@platform/db/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Actor } from "../actor.ts";
@@ -40,7 +40,7 @@ describe("eval runs from the admin (spec §11)", () => {
     const detail = await templateDetail(h.deps, owner, "odontologia", NEXT);
     expect(detail.evals.active?.id).toBe(runId);
     expect(detail.evals.blocker).toMatch(/Run the evals first/);
-    expect(detail.scenarios).toHaveLength(15);
+    expect(detail.scenarios).toHaveLength(ODONTOLOGIA_SCENARIOS);
   });
 
   it("shows a failed run's report and blocks publishing with the reason", async () => {

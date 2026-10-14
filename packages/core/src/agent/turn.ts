@@ -9,6 +9,7 @@ import {
   type BookingRow,
   type BusinessRow,
   type Database,
+  type MessageRow,
 } from "@platform/db";
 import type { SchedulingProvider } from "@platform/scheduling";
 import { formatSlotLabel, type Logger } from "@platform/shared";
@@ -141,14 +142,45 @@ export async function dynamicBlock(turn: Turn, notes: readonly string[]): Promis
     (p) =>
       `- proposal_id ${p.id}: ${p.action} ${describeParams(p.params, turn.tool.business.timezone)}`,
   );
+  const earlier = earlierToolCalls(turn.recent);
   const all = [
     ...notes,
     ...(pending.length > 0
       ? [`Waiting for the customer's confirmation of:\n${pending.join("\n")}`]
       : []),
+    ...(earlier.length > 0
+      ? [
+          "Tools you already used earlier in this conversation, with their real results (your earlier " +
+            `replies were based on them):\n${earlier.join("\n")}`,
+        ]
+      : []),
   ];
   const dynamic = renderDynamicBlock(renderer, turn.template, turn.context);
   return all.length > 0 ? `${dynamic}\n\n[Runtime notes]\n${all.join("\n")}` : dynamic;
+}
+
+/** Most recent tool calls shown to the model, and the length each one is clipped to. */
+const EARLIER_CALLS = 6;
+const EARLIER_CALL_CHARS = 500;
+/** Guidance the tools gave for that moment, not results: left out of the recap. */
+const GUIDANCE_KEYS = new Set(["note", "next_step"]);
+
+/**
+ * History is text only (ADR 0008), so without this the model sees its earlier answers but
+ * not the checks behind them, and "corrects" itself for answering without checking
+ * (owner, 2026-10-11). The calls are stored with each agent reply (`messages.tool_calls`).
+ */
+export function earlierToolCalls(recent: readonly MessageRow[]): string[] {
+  const calls = recent
+    .filter((m) => m.direction === "outbound" && Array.isArray(m.toolCalls))
+    .flatMap((m) => m.toolCalls as { name?: unknown; input?: unknown; result?: unknown }[]);
+  return calls.slice(-EARLIER_CALLS).map((call) => {
+    const result = JSON.stringify(call.result, (key, value: unknown) =>
+      GUIDANCE_KEYS.has(key) ? undefined : value,
+    );
+    const line = `- ${String(call.name)} ${JSON.stringify(call.input)} → ${result}`;
+    return line.length > EARLIER_CALL_CHARS ? `${line.slice(0, EARLIER_CALL_CHARS - 1)}…` : line;
+  });
 }
 
 function describeParams(params: Record<string, unknown>, timezone: string): string {

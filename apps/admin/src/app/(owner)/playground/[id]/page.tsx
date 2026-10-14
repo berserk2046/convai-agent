@@ -49,7 +49,8 @@ export default async function PlaygroundSessionPage(props: PageProps<"/playgroun
         }
         description={
           <>
-            {detail.config} · started {ownerDateTime(detail.createdAt)} ·{" "}
+            {detail.config} · {detail.model ?? "unknown model"} · started{" "}
+            {ownerDateTime(detail.createdAt)} ·{" "}
             <Link className="underline" href="/playground">
               All chats
             </Link>

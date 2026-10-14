@@ -1,6 +1,7 @@
 export {
   findCandidates,
   searchWindow,
+  timeOfDayAt,
   toMinutes,
   type AvailabilityInput,
   type Busy,
@@ -9,7 +10,7 @@ export {
   type TimeRange,
   type WeeklyHours,
 } from "./availability.ts";
-export { chooseSlots, type Offer } from "./offer.ts";
+export { chooseSlots, nearbyDays, type NearbyDay, type Offer } from "./offer.ts";
 export {
   builtinProvider,
   type BusyBlock,

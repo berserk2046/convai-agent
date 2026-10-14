@@ -15,6 +15,7 @@ import {
   type EvalRunRow,
 } from "@platform/db";
 import {
+  ODONTOLOGIA_SCENARIOS,
   ODONTOLOGIA_VERSION,
   createTestDatabase,
   publishOdontologia,
@@ -73,8 +74,9 @@ describe("stored eval runs", () => {
     const finished = await executeEvalRun(deps(), run);
     expect(finished).toMatchObject({ status: "finished", criticalPass: false, gatePassed: false });
     const report = finished?.results as { scenarios: unknown[]; summary: { totalRuns: number } };
-    expect(report.scenarios).toHaveLength(15);
-    expect(finished?.progress).toEqual({ done: 15, total: 15 });
+    const count = ODONTOLOGIA_SCENARIOS;
+    expect(report.scenarios).toHaveLength(count);
+    expect(finished?.progress).toEqual({ done: count, total: count });
     expect(finished?.costUsd).toBeGreaterThan(0);
     const template = await getTemplateVersion(testDb.db, "odontologia", ODONTOLOGIA_VERSION);
     expect(template?.evalReport).toMatchObject({

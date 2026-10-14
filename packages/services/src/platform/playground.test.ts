@@ -4,6 +4,12 @@ import {
   getPlaygroundSession,
   listScratchDatabases,
 } from "@platform/db";
+import {
+  ODONTOLOGIA_MODEL,
+  ODONTOLOGIA_VERSION,
+  laterVersion,
+  odontologiaAt,
+} from "@platform/db/testing";
 import { fakeDentalLlm } from "@platform/evals/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Actor } from "../actor.ts";
@@ -20,6 +26,7 @@ import {
   startPlayground,
   type PlaygroundEntry,
 } from "./playground.ts";
+import { uploadTemplate } from "./templates.ts";
 
 let h: Harness;
 let owner: Actor;
@@ -45,8 +52,28 @@ describe("playground (spec §11)", () => {
   it("offers the templates and businesses to chat with", async () => {
     const options = await playgroundOptions(h.deps, owner);
     expect(options.unavailable).toBeNull();
-    expect(options.templates).toEqual([expect.objectContaining({ slug: "odontologia" })]);
+    expect(options.templates).toEqual([
+      expect.objectContaining({ slug: "odontologia", model: ODONTOLOGIA_MODEL }),
+    ]);
     expect(options.businesses.map((b) => b.name).sort()).toEqual(["Clínica B", "Clínica Demo"]);
+  });
+
+  it("lists versions oldest to newest by semver, each with its model", async () => {
+    // Uploaded out of order: the major first, then the minor.
+    const major = laterVersion("major");
+    const minor = laterVersion("minor");
+    await uploadTemplate(h.deps, owner, odontologiaAt(major));
+    await uploadTemplate(
+      h.deps,
+      owner,
+      odontologiaAt(minor).replace(`model: ${ODONTOLOGIA_MODEL}`, "model: claude-sonnet-5-5"),
+    );
+    const options = await playgroundOptions(h.deps, owner);
+    expect(options.templates.map((t) => [t.version, t.model])).toEqual([
+      [ODONTOLOGIA_VERSION, ODONTOLOGIA_MODEL],
+      [minor, "claude-sonnet-5-5"],
+      [major, ODONTOLOGIA_MODEL],
+    ]);
   });
 
   it("answers in a sandbox with the sample config, showing tool calls, tokens and cost", async () => {
@@ -63,6 +90,7 @@ describe("playground (spec §11)", () => {
     expect(detail).toMatchObject({
       status: "active",
       config: "Sample config",
+      model: ODONTOLOGIA_MODEL,
       messages: 1,
       busy: false,
     });

@@ -540,6 +540,106 @@ describe("public holidays (spec review C2)", () => {
   });
 });
 
+describe("when the asked dates have nothing free (owner, 2026-10-11)", () => {
+  type Nearby = { date: string; label: string; times: { starts_at: string; label: string }[] }[];
+
+  it("offers the closest days with free times in the same part of the day", async () => {
+    const job = await receive("573200000070", "Quiero una limpieza el domingo en la mañana");
+    await giveConsent("573200000070");
+    const turn = await turnFor(job);
+    const { result } = await AGENT_TOOLS.check_availability.run(
+      turn.tool,
+      {
+        service_key: "limpieza",
+        date_from: "2026-10-11",
+        date_to: "2026-10-11",
+        time_of_day: "morning",
+      },
+      {},
+    );
+    expect(result.slots).toEqual([]);
+    expect(result.note).toContain("without asking first");
+    const nearby = result.nearby_days as Nearby;
+    // Saturday is 1 day away; Monday the 12th is a closed holiday; Friday and Tuesday are 2 away.
+    expect(nearby.map((d) => d.date)).toEqual(["2026-10-09", "2026-10-10", "2026-10-13"]);
+    expect(nearby[1]?.label).toBe("sábado 10 de octubre");
+    for (const day of nearby) {
+      expect(day.times.length).toBeGreaterThan(0);
+      expect(day.times.length).toBeLessThanOrEqual(2);
+      for (const time of day.times) expect(Number(time.starts_at.slice(11, 13))).toBeLessThan(12);
+    }
+  });
+
+  it("keeps to the part of the day of an asked time, nearest times first", async () => {
+    const job = await receive("573200000071", "¿El domingo a las 10?");
+    await giveConsent("573200000071");
+    const turn = await turnFor(job);
+    const { result } = await AGENT_TOOLS.check_availability.run(
+      turn.tool,
+      {
+        service_key: "limpieza",
+        date_from: "2026-10-11",
+        date_to: "2026-10-11",
+        around_time: "10:00",
+      },
+      {},
+    );
+    const saturday = (result.nearby_days as Nearby).find((d) => d.date === "2026-10-10");
+    expect(saturday?.times.map((t) => t.starts_at.slice(11, 16))).toEqual(["09:45", "10:00"]);
+  });
+
+  it("says when a date is past the booking window, and offers its last days", async () => {
+    const job = await receive("573200000072", "¿Tienen cita el 15 de diciembre?");
+    await giveConsent("573200000072");
+    const turn = await turnFor(job);
+    const { result } = await AGENT_TOOLS.check_availability.run(
+      turn.tool,
+      { service_key: "limpieza", date_from: "2026-12-15", date_to: "2026-12-15" },
+      {},
+    );
+    // max_days_ahead is 45: from Monday 5 October, bookings open up to 19 November.
+    expect(result.booking_window).toMatchObject({
+      last_date: "2026-11-19",
+      last_label: "jueves 19 de noviembre",
+      note: expect.stringContaining("they are not full") as unknown,
+    });
+    expect((result.nearby_days as Nearby).map((d) => d.date)).toEqual([
+      "2026-11-17",
+      "2026-11-18",
+      "2026-11-19",
+    ]);
+  });
+
+  it("shows the model the checks behind its earlier answers", async () => {
+    const from = "573200000073";
+    await say(
+      from,
+      "Quiero una limpieza el domingo en la mañana",
+      [
+        {
+          tools: [
+            {
+              name: "check_availability",
+              input: { service_key: "limpieza", date_from: "2026-10-11", date_to: "2026-10-11" },
+            },
+          ],
+        },
+        { text: "El domingo no atendemos. ¿Le sirve el sábado 10 a las 9:00 a. m.?" },
+      ],
+      { consent: true },
+    );
+    const second = await say(from, "¿Y el domingo en la tarde?", [{ text: "Tampoco." }], {
+      consent: true,
+    });
+    const dynamic = (second.llm.requests[0]?.system as { text: string }[])[1]?.text ?? "";
+    expect(dynamic).toContain("Tools you already used earlier in this conversation");
+    expect(dynamic).toMatch(/- check_availability \{[^}]*"service_key":"limpieza"[^}]*\} → \{/);
+    // Results, not the tools' guidance for that moment.
+    expect(dynamic).toContain('"nearby_days":');
+    expect(dynamic).not.toContain("without asking first");
+  });
+});
+
 describe("confirmation can't be carried over (decision A5)", () => {
   const tuesday = (time: string) => `2026-10-13T${time}:00-05:00`;
   const book = (name: string, startsAt: string, extra: Record<string, unknown> = {}) => ({

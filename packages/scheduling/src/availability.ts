@@ -135,6 +135,10 @@ export function findCandidates(input: AvailabilityInput): Candidate[] {
 }
 
 /** Morning before 12:00, afternoon 12:00–18:00, evening from 18:00 (spec review B21). */
+export function timeOfDayAt(minute: number): TimeOfDay {
+  return minute < 12 * 60 ? "morning" : minute < 18 * 60 ? "afternoon" : "evening";
+}
+
 function matchesTimeOfDay(minute: number, timeOfDay: TimeOfDay | undefined): boolean {
   if (timeOfDay === "morning") return minute < 12 * 60;
   if (timeOfDay === "afternoon") return minute >= 12 * 60 && minute < 18 * 60;

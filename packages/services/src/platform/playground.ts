@@ -38,7 +38,7 @@ import {
   type SandboxState,
 } from "@platform/evals";
 import type { LlmClient, TokenUsage } from "@platform/llm";
-import { formatPath, validateBusinessConfig } from "@platform/templates";
+import { compareSemver, formatPath, validateBusinessConfig } from "@platform/templates";
 import { asc, ne } from "drizzle-orm";
 import { runMigrations } from "@platform/db/migrate";
 import { requireOwner, type Actor } from "../actor.ts";
@@ -78,7 +78,8 @@ const TURN_CLAIM_STALE_MS = 3 * 60_000;
 export interface PlaygroundOptions {
   /** Why the playground can't run here, or null. */
   unavailable: string | null;
-  templates: { slug: string; version: string; status: string; name: string }[];
+  /** Oldest to newest version within each template; `model` is the version's `agent.model`. */
+  templates: { slug: string; version: string; status: string; name: string; model: string }[];
   businesses: { id: string; name: string; template: string; configured: boolean }[];
 }
 
@@ -87,11 +88,9 @@ export async function playgroundOptions(
   actor: Actor,
 ): Promise<PlaygroundOptions> {
   requireOwner(actor);
-  const templates = await deps.db
-    .select()
-    .from(verticalTemplates)
-    .where(ne(verticalTemplates.status, "deprecated"))
-    .orderBy(asc(verticalTemplates.slug), asc(verticalTemplates.createdAt));
+  const templates = (
+    await deps.db.select().from(verticalTemplates).where(ne(verticalTemplates.status, "deprecated"))
+  ).sort((a, b) => a.slug.localeCompare(b.slug) || compareSemver(a.version, b.version));
   const rows = await deps.db.select().from(businesses).orderBy(asc(businesses.name));
   return {
     unavailable: unavailableReason(deps),
@@ -100,6 +99,7 @@ export async function playgroundOptions(
       version: t.version,
       status: t.status,
       name: t.manifest.manifest.name,
+      model: t.manifest.agent.model,
     })),
     businesses: rows.map((b) => ({
       id: b.id,
@@ -311,6 +311,8 @@ export async function listPlaygrounds(
 }
 
 export interface PlaygroundDetail extends PlaygroundSummary {
+  /** The template version's `agent.model`: what answers in this chat. */
+  model: string | null;
   busy: boolean;
   consentGiven: boolean;
   entries: PlaygroundEntry[];
@@ -328,9 +330,11 @@ export async function playgroundDetail(
   const session = await getPlaygroundSession(deps.db, sessionId);
   if (!session) throw new NotFoundError("playground session");
   const entries = session.entries as PlaygroundEntry[];
+  const template = await getTemplateVersion(deps.db, session.templateSlug, session.templateVersion);
   return {
     id: session.id,
     template: `${session.templateSlug}@${session.templateVersion}`,
+    model: template?.manifest.agent.model ?? null,
     config: configLabel(session, await businessNames(deps)),
     status: session.status,
     messages: entries.filter((e) => e.type === "turn").length,

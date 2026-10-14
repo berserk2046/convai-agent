@@ -28,6 +28,9 @@ export const ODONTOLOGIA_SAMPLE_CONFIG: Record<string, unknown> = ODONTOLOGIA.sa
 /** The version the file declares. Tests use this, so a template bump needs no test edits. */
 export const ODONTOLOGIA_VERSION: string = ODONTOLOGIA.manifest.version;
 
+/** How many eval scenarios the file declares. */
+export const ODONTOLOGIA_SCENARIOS: number = ODONTOLOGIA.evals.length;
+
 /** The agent model the file declares (`agent.model`). */
 export const ODONTOLOGIA_MODEL: string = ODONTOLOGIA.agent.model;
 

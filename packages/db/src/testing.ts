@@ -37,6 +37,7 @@ export async function createTestDatabase(options: { name?: string } = {}): Promi
 export {
   ODONTOLOGIA_MODEL,
   ODONTOLOGIA_SAMPLE_CONFIG,
+  ODONTOLOGIA_SCENARIOS,
   ODONTOLOGIA_SOURCE,
   ODONTOLOGIA_VERSION,
   createTestBusiness,
